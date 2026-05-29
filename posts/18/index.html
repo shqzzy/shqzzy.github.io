@@ -1,0 +1,129 @@
+{% extends "templates/post.html" %}
+
+{% block post %}
+
+<h2>Abstract</h2>
+I explain why plain function application can sometimes be considered the wrong way around and what can be done to solve it using
+examples in Elm as well as Haskell.
+
+
+<h2>Content</h2>
+
+When learning about functional programming it is common to explain function application as repeated function calling in most imperative languages.
+For example: 
+
+{% call macros.code("haskell") %}
+binaryFunction(x)(y)
+--becomes
+binaryFunction x y
+{% endcall %}
+
+With functional programs the level of nested applications is prone to grow much more.
+I will use an actual case I encountered when using the haskell-like language Elm.
+Whilst working on an application where you can explore and compare multiple code sources,
+I wanted to add a functionality that hides toplevel functions that are the same across currently
+opened panels.
+I had already written a function that effectively executed a GROUP BY query based on some integer projection of
+the function. I would later call it with a mapping from the function to a pre calculated hash based on its body.
+
+{% call macros.code("elm") %}
+getMatchedTopLevel : (TopBindingInfo -> Int) -> CodeTab -> List (List TopBindingInfo)
+{% endcall %}
+
+What I now wanted to do was to create a set of functions to hide. This would include a few steps in order:
+
+<ol>
+  <li>Call getMatchedTopLevel using the topBindingHash field selector</li>
+  <li>Filter out sublists that are not of size #panels (this is a diff case so we don't want to hide them)</li>
+  <li>Concatenate the list of lists</li>
+  <li>Map the TopBindingInfo to its id</li>
+  <li>Convert to a Set</li>
+</ol>
+
+This construction could look like this:
+
+{% call macros.code("elm") %}
+hideSet : Set Int
+hideSet = Set.fromList (List.map topBindingInfoToInt (List.concat (List.filter (\xs -> List.length xs >= nrPanels) (getMatchedTopLevel .topBindingHash tab))))
+{% endcall %}
+
+<p>
+  Now if you don't agree this is awful to look at than I'm afraid we probably won't get along very well along as coding partners...
+</p>
+
+<p>
+  One option to improve the snippet is with the help of the equivalent of Haskell's <code>$</code> operator in Elm:
+</p>
+
+{% call macros.code("elm") %}
+hideSet : Set Int
+hideSet = Set.fromList <| List.map topBindingInfoToInt <| List.concat <| List.filter (\xs -> List.length xs >= nrCaptures) <| getMatchedTopLevel .topBindingHash tab
+{% endcall %}
+
+<p>
+  At least we are no longer counting parenthesis but it still does not feel entirely right. Why is that?
+  Well, my theory is that to understand the whole expression whilst reading - as humans naturally do - from left to right, one has
+  to keep a list in their head about which operations will be applied in reverse. It would make much more sense to read the other way
+  around. But this introduces a similar problem that our bodies face copying DNA.
+</p>
+
+<p>
+To quickly get you up to speed with my analogy; Remember how DNA is a double helix consisting of two strands? Well when a copy needs
+to be made (usually because the cell is about to split), this structure has to be unwound.
+This process is completed by the enzyme helicase. 
+After helicase has unwound a section of two complementing strands of DNA, polymerase will work on both these single strands to make them whole again,
+yielding two complete DNA strands which are both half 'new'. However, polymerase can only traverse the strand in one direction, 
+but since strands are always mirrored versions of each other, one of the stands (known as the lagging strand) 
+has to be traversed in the opposite of the unwinding process. 
+Therefore, on this side polymerase which have to jump back over its previous work to find a new small section to work on and so on.
+Check out this visualisation by the youtube channel <a href="https://www.youtube.com/watch?v=Qqe4thU-os8">Amoeba Sisters</a>
+</p>
+
+<img src="dna.png">
+
+<p>
+  As you can see, the lower copy is not made in one continuous operation, but in so called Okazaki fragments.
+  This is exactly how one would have to read our previous Elm fragment: reading backwards to follow the order of operations, but jumping ahead and reading forward to decipher the normal English names given to functions and variables.
+</p>
+
+<p>
+Now I was assuming that the lagging strand was more error prone and let to more DNA mutations so that I could make the 
+biologically supported claim that writing deeply nested applications is cancerous. However it actually turns out that the opposite is
+the case when it comes to DNA. But I hope that my point still stands.
+</p>
+
+<p>
+Now I very well understand why function application was designed this way, because it simply would not make sense the other way 
+around in small cases, especially when specializing functions via partial application:
+</p>
+
+
+{% call macros.code("elm") %}
+-- This seems like an awful idea
+minusFive : Int -> Int
+minusFive = minus 5
+{% endcall %}
+
+However, Elm in particular has embraced the use the alternative when necessary using the pipe operator. This is how I think
+the previously discussed snippet can corrected to much more readable.
+
+{% call macros.code("elm") %}
+hideSet : Set Int
+hideSet = 
+  getMatchedTopLevel .topBindingHash tab
+  |> List.filter (\xs -> List.length xs >= nrPanels)
+  |> List.concat
+  |> List.map topBindingInfoToInt
+  |> Set.fromList
+{% endcall %}
+
+I am of the school of thought that this operator should be in the Haskell prelude as well and be used more commonly. 
+Until then you can elect to define it yourself and possibly even include it in a custom prelude for your projects:
+
+{% call macros.code("elm") %}
+(|>) :: a -> (a -> b) -> b
+(|>) x f = f x
+infixl 1 |>
+{% endcall %}
+
+{% endblock %}

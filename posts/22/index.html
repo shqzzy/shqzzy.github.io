@@ -1,0 +1,123 @@
+{% extends "templates/post.html" %}
+
+{% block header %}
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']]
+  }
+};
+</script>
+<script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML"> </script>
+{% endblock %}
+
+
+{% block post %}
+  <p>
+    For a recent project I found the need to partition a list of errors into
+    <b>user</b> and <b>server</b> errors... on the type level. This would allow me to properly
+    define a servant definition that is transparent about which errors are returned along with the
+    <code>400</code> HTTP status code, and which would be send as a <code>500</code>. This information can then be utilized
+    to automatically generate OpenAPI documentation, which is turning out to be an incredibly powerful
+    tool. It allows developers to easily and quickly test an endpoint, reviewers to spot any breaking
+    changes in the API, and other teams to do their thing without requiring much assistance.
+  </p>
+
+  <p>
+    Here is an impression of how the errors are defined:
+  </p>
+
+  {% call macros.code("haskell") %}
+  {-# LANGUAGE DerivingStrategies #-}
+
+  class IsError err where
+    type IsUserError err :: Bool
+
+  newtype UserError x = UserError x
+  instance IsError (UserError x) where
+    type IsUserError (UserError x) = True
+
+  newtype ServerError x = ServerError x
+  instance IsError (ServerError x) where
+    type IsError (ServerError x) = True
+
+  data InvalidParameter = InvalidTimestamp | InvalidSortKey
+    deriving IsError via UserError InvalidParameter
+
+  data DatabaseError = UnparsableStoredObject | UnkownDbError
+    deriving IsError via ServerError DatabaseError
+  {% endcall %}
+
+  <p>
+    With that we can create a special servant http verb that can be transparent about the errors it can throw.
+    Moreover, by employing a type family we can distinguish between user and server errors and choose a more
+    appropriate http return code.
+  </p>
+
+  {% call macros.code("haskell") %}
+  {-# LANGUAGE DataKinds #-}
+  {-# LANGUAGE TypeFamilies #-}
+
+  import qualified Servant.API as Servant
+
+  type family FilterUserErrors (errs :: [Type]) :: [Type] where
+    FilterUserErrors '[] = '[]
+    FilterUserErrors (e ': es) = If (IsUserError e) (e ': FilterUserErrors es) (FilterUserErrors es)
+
+  type family FilterServerErrors (errs :: [Type]) :: [Type] where
+    FilterServerErrors '[] = '[]
+    FilterServerErrors (e ': es) = If (IsUserError e) (FilterServerErrors es) (e ': FilterServerErrors es)
+
+  type VerbWithErrors method contentTypes errs res =
+    UVerb
+      method
+      contentTypes
+      '[ WithStatus 200 res
+       , WithStatus 400 (Servant.Union (FilterUserErrors errs))
+       , WithStatus 500 (Servant.Union (FilterServerErrors errs))
+       ]
+  {% endcall %}
+
+  <p>
+    And this worked splendidly! Or at least for a while. Because as the application grew, we very abruptly ran
+    in the problem of unreasonably slow compile time after going from 11 to 13 errors.
+    The server module now took 3 minutes to compile!
+  </p>
+
+  <p>
+    You might expect that the type checker would be given a lot of extra work with this approach and would be the reason
+    for the slowdown, but this is actually not case.
+    With the help of <a href='https://github.com/codedownio/time-ghc-modules'>time-ghc-modules</a> I was able to identify
+    GHC's simplifier as the source of the slowdown.
+    Not really expecting to learn much from it, I compiled with the <code>-ddump-simpl</code> flag to be able to inspect the Core representation
+    at each stage of the simplifier. But without even looking at it, I could see something was off: the pretty printed Core was gigabytes
+    in size! All the while the server module was only a couple hundred lines of code.
+    Glancing at the Core identified the suspect: A LOT of typelevel occurances of the <code>If</code> constructor.
+  </p>
+
+  <p>
+    The issue is that <code>If</code> is just a constructor and is not actually being reduced by the compiler. As a result, both
+    recursive calls to the filter are expanded and an exponential size type level term is created! To be precise, \(2 ^ n\).
+    To resolve this, we need to reformulate the type family to only have 1 recursive call.
+    It might seem obvious when I give you the answer, but I can assure you that I would not have been able to crack the case
+    without the help of <a href='https://andres-loeh.de/'>Andres Löh</a> at Zurihac 2024.
+  </p>
+
+  {% call macros.code("haskell") %}
+  type family FilterUserErrors (xs :: [Type]) :: [Type] where
+    FilterUserErrors '[] = '[]
+    FilterUserErrors (x ': xs) = ConditionalCons (IsUserError x) x (FilterUserErrors xs)
+
+  type family FilterServerErrors (xs :: [Type]) :: [Type] where
+    FilterServerErrors '[] = '[]
+    FilterServerErrors (x ': xs) = ConditionalCons (Not (IsUserError x)) x (FilterServerErrors xs)
+
+  type family ConditionalCons (b :: Bool) (x :: Type) (xs :: [Type]) where
+    ConditionalCons True x xs = x : xs
+    ConditionalCons False _ xs = xs
+  {% endcall %}
+
+  With this very subtle redefinition the compile time of the server modules was reduced from 3 minutes to 4 seconds!
+  Developing is fun once more!
+
+{% endblock %}
