@@ -1,0 +1,12 @@
+{% extends "templates/post.html" %}
+
+{% block post %}
+  <h1>{{post.title}}</h2>
+  <p>Just some random stuff</p>
+
+  <p>And a code block:</p>
+    {% call macros.code("javascript") %}
+      const express = require('express');
+      const app = express;
+    {% endcall %}
+{% endblock %}

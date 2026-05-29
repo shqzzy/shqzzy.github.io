@@ -1,0 +1,256 @@
+{% extends "templates/post.html" %}
+
+{% block post %}
+  <p>
+    This wonderful episode of Cracking the Cryptic piqued my curiosity:
+  </p>
+
+    <p>
+      <iframe width="560" height="315" src="https://www.youtube.com/embed/5CafO_kB4ko?si=HISEeJQrjdap2--L" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    </p>
+
+  <p>
+    Not because I wanted to grab some paper can pencil and give it a shot myself, but
+    because I was curious to see if I could Z3 to solve it from my current go-to
+    programming language, Rust.
+  </p>
+
+  <h3>Puzzle rules</h3>
+
+  <p>
+    In case you have not seen the video, the puzzle works as follows:
+
+    <ul>
+      <li>The puzzle is a 8x8 grid.</li>
+      <li>Rows and columns must contain 1 to 8 exactly once.</li>
+      <li>The regular 3x3 rule does not apply.</li>
+      <li>Each horizontal pair - or domino - of digits (with the exception of those in the right most
+        column) make up the coordinates (row, column) of
+      another cell. The value of that cell must be equal to the row the domino is in.</li>
+    </ul>
+
+    The initial configuration contains just a single known cell with value 1.
+  </p>
+
+  <h3>Modeling the puzzle</h3>
+
+  <p>
+    First step is to make a new Rust project and add the <code>z3</code> crate to the dependencies.
+  </p>
+
+  {% call macros.code("sh") %}
+  $ cargo new --bin z3_sudoku
+  $ cd z3_sudoku
+  $ cargo add z3
+  {% endcall %}
+
+  <p>
+    Next, we need to model the puzzle in Z3. We will need to create a new context and solver.
+  </p>
+
+  {% call macros.code("rust") %}
+  use z3::{
+    ast::{self, Ast},
+    Config, Context, Solver,
+  };
+
+  fn main() {
+    let cfg = Config::new();
+    let ctx = Context::new(&cfg);
+    let solver = Solver::new(&ctx);
+  }
+  {% endcall %}
+
+  Then we need to create a set of 64 variables that represent the cells of the board.
+  We store them in an 8x8 matrix to match the layout of the board. We also add the
+  constraint that the value must be in the range <code>[1,8]</code>.
+
+  {% call macros.code("rust") %}
+  let mut board = Vec::new();
+  for y in 0..8 {
+      let mut row = Vec::new();
+      for x in 0..8 {
+          let cell_name = format!("cell_{}_{}", x, y);
+          let cell = ast::Int::new_const(&ctx, cell_name);
+
+          // Each cell must be in the range [1,8]
+          solver.assert(&cell.ge(&ast::Int::from_i64(&ctx, 1)));
+          solver.assert(&cell.le(&ast::Int::from_i64(&ctx, 8)));
+          row.push(cell);
+      }
+      board.push(row);
+  }
+  {% endcall %}
+
+  <p>
+  Let's first model the constraint that each row and column must contain 1 to 8 exactly once. This requires some thought because a statement like that is not directly expressible in Z3. Luckily, we can decompose that statement into two simpler constraints:
+
+  <ul>
+    <li>Each cell must be in the range [1,8]</li>
+    <li>Each cell must be not equal to any other cell in the same row or column</li>
+  </ul>
+
+  The first constraint was already imposed on each cell when we created the variables.
+  The second constraint can be simplified because inequality is commutative. So we only
+  have to check each unique pair of cells in the same row or column. In other words, we only have to check that a cell is not equal to every cell that appears before that cell in each row or colunn. Note that I also added some
+  helper functions to make the expression of inequalities a bit more readable.
+
+  </p>
+
+  {% call macros.code("rust") %}
+  // On the top level
+  trait Z3Eq {
+    fn z3_eq(&self, other: &Self) -> ast::Bool;
+    fn z3_neq(&self, other: &Self) -> ast::Bool;
+  }
+
+  impl<'a> Z3Eq for ast::Int<'a> {
+      fn z3_eq(&self, other: &Self) -> ast::Bool {
+          self._eq(other)
+      }
+      fn z3_neq(&self, other: &Self) -> ast::Bool {
+          self._eq(other).not()
+      }
+  }
+
+  // Continuing in the main function
+  // each row must be contains 1 to 8 precisely once
+  for row in 0..8 {
+      for column_lhs in 0..7 {
+          for column_rhs in (column_lhs + 1)..8 {
+              let cell_lhs = &board[row][column_lhs];
+              let cell_rhs = &board[row][column_rhs];
+              solver.assert(&cell_lhs.z3_neq(&cell_rhs));
+          }
+      }
+  }
+
+  // each column must be contains 1 to 8 precisely once
+  for column in 0..8 {
+      for row_lhs in 0..7 {
+          for row_rhs in (row_lhs + 1)..8 {
+              let cell_lhs = &board[row_lhs][column];
+              let cell_rhs = &board[row_rhs][column];
+              solver.assert(&cell_lhs.z3_neq(&cell_rhs));
+          }
+      }
+  }
+  {% endcall %}
+
+  <p>
+    At this point we can already try to run the solver to see if it can generate a
+    solutions that satisfy the constraints we have defined so far. The only
+    thing left is to set our known value and call the solver, and then print
+    the result.
+  </p>
+
+  {% call macros.code("rust") %}
+  // known values
+  solver.assert(&board[7][3].z3_eq(&ast::Int::from_i64(&ctx, 1)));
+
+  assert_eq!(solver.check(), z3::SatResult::Sat);
+  let m = solver.get_model().unwrap();
+
+  for row in 0..8 {
+      for column in 0..8 {
+          let cell = &board[row][column];
+          print!("{} ", m.eval(cell, true).unwrap());
+      }
+      println!();
+  }
+  {% endcall %}
+
+  Running the program takes a good few seconds on my machine. The runtime is likely
+  pretty bad because there many valid solutions, and thus the solver doesn't get many
+  opportunities to prune large portions of the search space. But it does eventually
+  produce a valid solution!
+
+  {% call macros.code("sh") %}
+  3 8 4 2 1 5 7 6
+  1 4 8 5 3 2 6 7
+  7 2 5 8 6 4 3 1
+  4 1 3 6 8 7 5 2
+  6 5 2 4 7 8 1 3
+  2 7 6 3 5 1 8 4
+  8 3 1 7 4 6 2 5
+  5 6 7 1 2 3 4 8
+  {% endcall %}
+
+  <p>
+  So now that we know that our solver setup works as expected, we can finally the add
+  the most interesting constraint: the one that enforces the relationship between
+  the dominos and the cells they represent.
+  </p>
+
+  {% call macros.code("rust") %}
+  // For each row
+  for row in 0..8 {
+      // each domino starting in the first 7 columns (remember, no dominos cover
+      // the last column)
+      for domino_lhs in 0..6 {
+          // The right side of the domino is always one column to the right
+          let domino_rhs = domino_lhs + 1;
+          let lhs = &board[row][domino_lhs];
+          let rhs = &board[row][domino_rhs];
+          // For every possible value of the left side
+          for lhs_value in 1..=8i64 {
+              // For every possible value of the right side
+              for rhs_value in 1..=8i64 {
+                  let target = &board[lhs_value as usize - 1][rhs_value as usize - 1];
+                  println!("lhs({}) = {}, rhs({}) = {} => target({})", domino_lhs, lhs_value, domino_rhs, rhs_value, row+1);
+                  // Using an implication we can express what would appear to be a circular
+                  // reasoning! Only if our speculation of the value of the left and right
+                  // side of the domino is correct, does the domino rule apply!
+                  solver.assert(&z3::ast::Bool::implies(
+                      &z3::ast::Bool::and(
+                          &ctx,
+                          &[
+                              &lhs.z3_eq(&ast::Int::from_i64(&ctx, lhs_value)),
+                              &rhs.z3_eq(&ast::Int::from_i64(&ctx, rhs_value)),
+                          ],
+                      ),
+                      // +1 because we need to convert the index to the value
+                      &target.z3_eq(&ast::Int::from_i64(&ctx, row as i64 + 1)),
+                  ));
+              }
+          }
+      }
+  }
+  {% endcall %}
+
+  <p>
+    Having added those constraints before calling the solver, we get the final solution
+    to our puzzle (which in fact matches the one from the video). Interestingly enough,
+    although we made the problem much more complicated by adding extra constraints, the
+    solver is actually much much faster! This is because the new constraints actually
+    reduce the search space significantly.
+  </p>
+
+  {% call macros.code("sh") %}
+  5 3 8 4 7 2 6 1
+  7 6 4 8 5 1 3 2
+  4 1 7 5 8 6 2 3
+  3 5 2 1 6 8 7 4
+  1 4 6 3 2 7 8 5
+  8 2 5 7 4 3 1 6
+  6 7 1 2 3 4 5 8
+  {% endcall %}
+
+
+  <h3>Summary</h3>
+
+  <p>
+    We converted a puzzle description into a set of variables and constraints that the
+    Z3 model checker can understand and solve. We did this using the Rust language and
+    the Z3 crate. Once the program was completed, the computer was able to solve the
+    puzzle in the blink of an eye.
+  </p>
+
+  <p>
+    Hopefully this post has shown how magical Z3 can feel and how you can easily get
+    started with it in Rust. If you are interested in using Z3 in other languages,
+    I actually have an older post where I use Z3 from Haskell: {{ macros.refPost(15) }}.
+  </p>
+
+
+{% endblock %}

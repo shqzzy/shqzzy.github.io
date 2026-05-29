@@ -1,0 +1,24 @@
+{% extends "templates/base.html" %}
+
+{% block title %}{{post.title}}{% endblock %}
+{% block favicon %}/posts/{{post.number}}/{{post.favicon}}{% endblock %}
+
+{% block content %}
+  <div class="code-languages">
+    {% for lang in post.languages %}
+    <div class="code-language">{{ lang }}</div>
+    {% endfor %}
+  </div>
+  <h1>{{post.title}}</h1>
+  {% block post %}
+  {% endblock %}
+
+    {% block comments %}
+    {{ macros.commentSection(post.number) }}
+    {% endblock %}
+  <div class="modified-at"> 
+    <small>last modified: {{post.get_modifiedAt_format()}}</small>
+  </div>
+
+{% endblock %}
+

@@ -1,0 +1,159 @@
+{% extends "templates/post.html" %}
+
+{% block post %}
+
+One thing that I always thought was great about Haskell, which bothered me in OO languages, is the idea of a typeclass. It allows you to implement a common interface for a myriad of types and then implicitly
+create higher order functions; after all, you don't pass the functions themselves, but they can be derived from the type the function is instantiated with. Let me give an example. A very common pattern in
+all languages is the ability to convert an object to its string representation. Haskell comes with a <code>Show</code> typeclass, that defines the common interface:
+
+{% call macros.code("haskell") %}
+class Show a where
+    show :: a -> String
+{% endcall %}
+
+if we then create for example a currency datatype, we can define the <code>show</code> function for all its constructors.
+
+{% call macros.code("haskell") %}
+data Currency = Euro Int | Dollar Int
+
+instance Show Currency where
+    show (Euro x) = "€" <> show x
+    show (Dollar x) = "$" <> show x
+{% endcall %}
+
+<h3> The object oriented approach </h3>
+
+
+If you are familiar with C#, where the use of interfaces is very much a core principle of the language, we could create an interface like the following:
+
+{% call macros.code("csharp") %}
+interface IShow 
+{
+    string Show();
+}
+{% endcall %}
+
+And then inherit from that interface in our specific currency classes:
+
+{% call macros.code("csharp") %}
+class Euro : IShow 
+{
+    int x;
+    override string Show() {
+        // Not an ideal example since toString already exists, but oh well.
+        return "€" + x.toString()
+    }
+}
+
+class Dollar : IShow 
+{
+    int x;
+    override string Show() {
+        return "$" + x.toString()
+    }
+}
+
+{% endcall %}
+
+For C# this is a fairly canonical and reasonable approach. But when we transition to C++, we have a better alternative.
+
+<h3> c++ means you care about performance </h3>
+
+<p>
+    It's the main selling point of the language: it can be fast. C++ also does not have interfaces. However, because multiple inheritance is allowed we could quite
+    easily do the same as in C#, but there is a big drawback: virtual functions. Virtual functions can incur a costly performance overhead; there will need to be a
+    runtime lookup into the vtable to see what function has been implemented for this specific type. This also means that the compiler cannot inline the function call,
+    which is an essential optimization.
+</p>
+
+<p>
+    This same problem may exist in C# but it is unlikely that performance will be high on your priority list. If that were the case, you should have started with c++
+    from the start anyway. So, how can we do better than virtual functions? Templating!
+</p>
+
+
+{% call macros.code("cpp") %}
+template<typename T>                                                            
+struct show_class {                                                             
+    std::string operator() (const T& obj) const;                                
+};
+                                                                                
+struct Euro {                                                                   
+    int x;                                                                      
+};                                                                              
+
+struct Dollar {
+    int x;
+};
+                                                                                
+template<>                                                                      
+struct show_class<Euro> {                                                       
+    std::string operator() (const Euro& obj) const {                            
+        return "€" + std::to_string(obj.x);                                     
+    }                                                                           
+};
+
+template<>                                                                      
+struct show_class<Dollar> {                                                       
+    std::string operator() (const Dollar& obj) const {                            
+        return "€" + std::to_string(obj.x);                                     
+    }                                                                           
+};
+
+{% endcall %}
+
+We can now call upon the typeclass in some polymorphic function:
+
+{% call macros.code("cpp") %}
+
+template<typename T>
+void printToConsole(const T& obj) {
+    printf("%s\n", show_class<T>()(obj).c_str());
+}
+
+{% endcall %}
+
+Whenever we pass a T for which the typeclass is not implemented, we will get a compile time error. If the typeclass is implemented,
+compiler will know at compile time which function to use and is free to inline it. Invalid usage will unfortunately not always
+result in very readable error message:
+
+{% call macros.code("sh") %}
+/usr/bin/ld: /tmp/ccPSfC80.o: in function `void printToConsole<int>(int const&)'
+:                                                                               
+test.cpp:(.text._Z14printToConsoleIiEvRKT_[_Z14printToConsoleIiEvRKT_]+0x33): un
+defined reference to `show_class<int>::operator()[abi:cxx11](int const&) const' 
+collect2: error: ld returned 1 exit status
+{% endcall %}
+
+Especially annoying is the fact that language servers and IDE's will likely also not pickup on this problem. What they see is that the
+function generally does exist in the typeclass definition, and it'll only be the linker that realizes that the function is never implemented for any type.
+It seems however that there is experimental solutions for this in the pipeline: <a href="https://en.cppreference.com/w/cpp/experimental/is_detected">https://en.cppreference.com/w/cpp/experimental/is_detected</a>. 
+Although I myself was not skilled enough to get it working just yet.
+
+<h3>Cool hack, but I write professional software</h3>
+Great, this stuff is not a hack, this is actually being used, even in STL! If I want to create an <code>unordered_map</code> of say pairs, you will run into the problem that STL has not implemented a hash
+function for that type and will refuse it as a map key. However, there is a templated hash struct very similar to our <code>show_class</code> that we can specialize with a generic pair type to allow
+for this:
+
+
+{% call macros.code("cpp") %}
+struct pair_hash {
+    template<class T1, class T2>
+    std::size_t operator() (const std::pair<T1, T2> &p) const {
+        auto h1 = std::hash<T1>()(p.first);
+        auto h2 = std::hash<T1>()(p.second);
+        return h1 ^ h2;
+    }
+};
+
+int main(int argc, char** argv) {
+    // this is now allowed
+    std::unordered_map<std::pair<int, int>, int, pair_hash> veryNiceMap;
+    return 0;
+}
+{% endcall %}
+
+Very professional friendly I'd say :)
+
+
+{% endblock %}

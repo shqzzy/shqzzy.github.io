@@ -1,0 +1,61 @@
+{% extends "templates/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+  <h1>About</h1>
+
+  <div class="about">
+
+  <p>
+    Hi, I am shqzzy,I come from hangzhou,China.
+  </p>
+  
+  I am a freelancer. 
+  
+  </p>
+
+  <p>
+  You can reach me by sending an email to <i>shqzzy@gmail.com</i>.
+  </div>
+
+
+  <h1>Latest Posts</h1>
+
+  <div class="latest-posts">
+  {% for post in state.posts | sort(attribute='postedAt', reverse=True)  %}
+      <a href="{{post.get_url()}}">
+        <div style="width:24px;height:24px;flex-shrink:0" class="post-block">
+            {% if post.favicon %}
+               <img style="width:24px;height:24px" src="posts/{{post.number}}/{{post.favicon}}">
+            {% endif %}
+        </div>
+        <span style="flex:1">{{ post.title }}</span>
+        <span style="color:var(--fg-muted);font-size:0.85em;white-space:nowrap">{{ post.get_postedAt_format() }}</span>
+      </a>
+  {% endfor %}
+  </div>
+<!--
+  <h2>External Posts</h2>
+
+  <div class="latest-posts">
+    <a href="https://www.channable.com/tech/postgres-performance-lessons-1">
+      <div style="width:24px;height:24px;flex-shrink:0" class="post-block">
+           <img style="width:24px;height:24px" src="public/channable.ico">
+      </div>
+      <span>Postgres performance lessons at Channable - Part 1</span>
+    </a>
+    <a href="https://www.channable.com/tech/postgres-performance-lessons-2">
+      <div style="width:24px;height:24px;flex-shrink:0" class="post-block">
+           <img style="width:24px;height:24px" src="public/channable.ico">
+      </div>
+      <span>Postgres performance lessons at Channable - Part 2</span>
+    </a>
+  </div>
+-->
+  <h2>Virtual Friends</h2>
+  <ul>
+  <li><a href="https://blog.llandsmeer.com/" target="_blank">The Weekend Writeup</a></li>
+  </ul>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% import 'templates/macros.html' as macros %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+  <script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="/public/pygments.css">
+  <link rel="stylesheet" type="text/css" href="/public/style.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  {% if DEBUG %}
+    <script type="text/javascript" src="http://livejs.com/live.js"></script>
+  {% endif %}
+  {% block header %}
+  {% endblock %}
+  <link rel="alternate" type="application/rss+xml" title="Hugo's Blog" href="/feed.xml">
+  <link rel="icon" href="{% block favicon %}{% endblock %}">
+  <title>{% block title %}{% endblock %}</title>
+</head>
+<body>
+  {% if DEBUG %}
+  <p style="color:red;text-align:center">-- DEBUG --</p>
+  {% endif %}
+
+  {% block nav %}
+    {% include 'templates/nav.html' %}
+  {% endblock %}
+
+  <div class="content">
+    <div class="content-page">
+    {% block content %}
+    {% endblock %}
+    </div>
+  </div>
+
+  {% block footer %}
+    {% include 'templates/footer.html' %}
+  {% endblock %}
+
+</body>
+</html>
