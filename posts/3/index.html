@@ -1,605 +1,279 @@
-{% extends "templates/post.html" %}
-
-{% set src = "https://github.com/HugoPeters1024/MonadsInCSharp" %}
-{% set Msrc = "https://github.com/HugoPeters1024/MonadsInCSharp/blob/master/MondadsInCsharp/Maybe.cs" %}
-{% set Dsrc = "https://github.com/HugoPeters1024/MonadsInCSharp/blob/master/MondadsInCsharp/Demos/MaybeDemo.cs" %}
-
-
-{% block post %}
-    <h2>Functional Programming? That's like map right?</h2>
-    <p>
-    The fact that people start reading blog posts about functional programming
-    can nowadays no longer solely be attributed to being an enthusiastic type-theorist.
-    Transformations like map, filter, or even reduce have found their way into many
-    well known programming languages like python, javascript, C# or even C++. Look at the
-    examples below showing how to increment every element in a list and filter out
-    only the even numbers. <i>oneMore</i> will always be [2,3,4,5,6] and <i>even</i> [2,4].
-    </p>
-
-    {% call macros.code("javascript") %}
-    const input = [1,2,3,4,5];
-    const oneMore = input.map(x => x+1);
-    const even = input.filter(x => x%2 == 0);
-    {% endcall %}
-
-    {% call macros.code("python") %}
-    input = [1,2,3,4,5]
-    # we use list() to force evaluation since map and
-    # filter return generators.
-    oneMore = list(map(lambda x: x+1, input))
-    even = list(filter(lambda x: x%2 == 0, input))
-    # Can also be done with list comprehensions
-    oneMore = [x+1 for x in input]
-    even = [x for x in input if x%2==0]
-    # Notice how you could do map and filter
-    # in one list comprehension?
-    {% endcall %}
-
-    {% call macros.code("csharp") %}
-    // Yes SQL is actually a simple functional language!
-    using System.Linq;
-    var input = new List<int> { 1, 2, 3, 4, 5 }
-    var oneMore = input.Select(x => x+1);
-    var even = input.Where(x => x%2 == 0);
-    // Do note that oneMore and even are both
-    // of type IEnumerable<int> are in fact
-    // lazy loaded. 
-    {% endcall %}
-
-    {% call macros.code("cpp") %}
-    #include <vector>
-    #include <algorithm>
-
-    int main()
-    {
-      auto input = std::vector<int> {1,2,3,4,5};
-      auto oneMore = std::vector<int>(5);
-      std::transform(
-          input.begin(), // First element
-          input.end(),   // Last element
-          oneMore.begin(),  // First element of destination
-          [](int x){return x+1;});
-
-      // Notice how we had to guess that
-      // the result had 2 elements?
-      auto even = std::vector<int>(2);
-      std::transform(
-          input.begin(),
-          input.end(),
-          even.begin(),
-          [](int x){return x%2==0;});
-      return 0;
-    }
-    {% endcall %}
-
-    {% call macros.code("haskell") %}
-    --This syntax only works in the interpreter
-    input = [1..5]
-    oneMore = map (+1) input
-    even = filter (\x -> x%2==0) input
-    {% endcall %}
-
-    <p>
-    But having witnessed the power of one the first truly functional languages: haskell,
-    I wonder: "Is this all we can learn from it?"
-    It has taken me many frustrating hour to finally grasp the concepts of 
-    Functors, Applicatives, and Monads. However, now that I do I find them 
-    so intuitive and useful, I miss them in my imperative world. 
-    Let's see if we can learn what they are whilst rebuilding them in C#.
-    </p>
-
-    <h2>Maybe: Security through insecurity</h2>
-    <p>
-    If you have ever written code you must have found yourself in situation were you
-    wrote a function that pretty much always worked but there were a few edge cases. "Oh
-    well lets just return None/null/.. and check for it later. I hope I don't have to
-    remind you how that story ends, and yes, always.
-    </p>
-
-    <p>
-    Alright, so what do we do when we can't always obtain an answer? What can we say
-    about the result? Imagine we have a function that converts the character of a digit to
-    the actual integer, so 0-9. A beginning Haskeller might find him or herself
-    with the following dilemma: what if it is not a character of a digit? Should we return
-    a standard value or throw an error. Perhaps leave a handy comment as well?
-    </p>
-
-    {% call macros.code("haskell") %}
-    import Data.Char
-
-    --DON'T PUT IN CHARACTERS THAT ARE NOT DIGITS THANK YOU PLEASE!
-    toDigit :: Char -> Int
-    toDigit c
-      | o >= 48 && o <= 57 = o-48
-      --Do it like this?
-      | otherwise = 0
-      -- Mmm, what about this:
-      | otherwise = error "Given char was not a digit"
-        where o :: Int
-              o = ord c
-
-    {% endcall %}
-
-    <p>
-    I hope I don't have to tell you that this is not good. Nobody will read your handy
-    comments until the production server has crashed and nobody expected that such a 
-    simple function would ever throw an error. And if you were to return 0 you would
-    likely be held liable for the psychiatry expenses of the poor fella who on the seventh
-    day finally realised what was causing that damned damned bug.
-    </p>
-
-    <p>
-    Alright, so our function doesn't always work... How do we communicate that effectively
-    to our fellow programmers? Well, if we also communicate it through the compiler
-    they will know for sure; you can tell them directly but telling mommy is more effective.
-    Enter Maybe, our lord and saviour who is wisest for not knowing.
-    </p>
-
-    {% call macros.code("haskell") %}
-    --Put in whatever you want!
-    toDigit :: Char -> Maybe Int
-    toDigit c
-      | o >= 48 && o <= 57 = Just (o-48)
-      | otherwise = Nothing
-        where o :: Int
-              o = ord c
-    {% endcall %}
-
-    <p>
-    Okay, so our answer is wrapped in a Maybe, it is either Nothing or Just a value. But how
-    do we get rid of it again when we want to do something with it?
-    </p>
-
-    {% call macros.code("haskell") %}
-    toDigitPlusOne :: Char -> Maybe Int
-    toDigitPlusOne c = case toDigit c of
-        Nothing -> Nothing
-        Just x -> Just (x+1)
-    {% endcall %}
-
-    <p>
-    Mmm, okay, but afterwards we stop it back in a Maybe. Does that mean we can never
-    really get rid of it? Well kinda, perhaps higher up in the program it can be a good
-    idea to choose functionality based on Nothing or Just, both leading to valid outcomes. 
-    In general however you will have to respect the fact that depending on a Maybe value, 
-    makes you a Maybe value. If you have seen a lot of <i>NullReferenceExceptions</i>
-    in your C# programs you must be excited to have the compiler tell you where you 
-    can prevent this. (Huray, C# 8 now has types that are non-nullable by default, 
-    to lose nullable types you have to check for null, just like Maybe! 
-    <a target=_blank href="https://docs.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-8#nullable-reference-types">documentation</a>)
-    </p>
-
-    <p>
-    While C# 8 is a long way from being the standard, let's see if we can implement this
-    in the C# environment of today. First, let's have a look at how Maybe is defined in
-    haskell.
-    </p>
-
-    {% call macros.code("haskell") %}
-    --Maybe is a called a datatype, Nothing and Just are
-    --called its instances. The 'a' refers to the type
-    --inside, which is not specified.
-    data Maybe a = Nothing | Just a
-    {% endcall %}
-
-    We can actually translate this quite well to C#. We can attribute the same type
-    to Nothing and Just by letting them inherit from an abstract Maybe class. The generic
-    type idea is also well known in C#:
-
-    {% call macros.code("csharp", source=Msrc) %}
-    abstract class Maybe<T>
-    {
-    }
-
-    class Nothing<T> : Maybe<T>
-    {
-    }
-
-    class Just<T> : Maybe<T>
-    {
-      // Making this property public is not at all
-      // a strange idea, if you can read the property means
-      // you have already asserted that you're al dealing
-      // with a just as opposed to a Nothing.
-      public T Value { get; set; }
-
-      public Maybe(T value)
-      {
-        Value = value;
-      }
-    }
-    {% endcall %}
-
-    In haskell, people have accustomed themselves to concept of pattern matching, 
-    basically a big if else if else chain to assert what we are dealing with:
-
-    {% call macros.code("haskell") %}
-    getDigitDescription :: Char -> String
-    getDigitDescription c = case toDigit c of
-        Nothing -> "Given character is not a digit"
-        Just x  -> "Given character is the digit " ++ show x
-    {% endcall %}
-
-    Perhaps a bit less well known but this can be done pretty much verbatim in C# with
-    the age old switch statement:
-
-    {% call macros.code("csharp") %}
-    public string GetDigitDescription(char c) {
-      Maybe<int> result = toDigit(c);
-      switch(result)
-      {
-        case Nothing n: 
-          return "Given character is not a digit"
-        case Just<int> j: 
-          return "Given character is the digit " + j.Value.toString();
-      }
-    }
-    {% endcall %}
-
-
-    <h2>Maybe is so much more than that</h2>
-    <p>
-    This is the part where it gets really interesting and the use of complicated
-    words increase. We're going to attribute 3 titles to Maybe that we later will
-    learn are also attributed to many other Haskell datatypes:
-    </p>
-
-    <ul>
-      <li>Functor</li>
-      <li>Applicative</li>
-      <li>Monad</li>
-    </ul>
-
-    We will go into great detail about what these properties mean, why we care
-    and if we can reproduce them in C#.
-
-    <h2>1. Functor</h2>
-    You can already imagine that it will become quite cumbersome to constantly repeat
-    that switch statement all throughout the codebase to gain back information about
-    the result. This is were a functor can help you. Let me throw you in the deep
-    by giving three equivalent functions, the first without using functors, the
-    latter two with.
-
-    {% call macros.code("haskell") %}
-    -- Let's assume we have this function, it cannot 
-    -- answer if the second argument is 0 and therefore 
-    -- returns a Maybe value.
-    isDivisbleBy :: Int -> Int -> Maybe Bool
-
-    isNotDivisbleBy :: Int -> Int -> Maybe Bool
-    isNotDivisbleBy a b = case isDivisbleBy a b of
-        Nothing -> Nothing
-        Just x  -> Just (not x)
-
-    isNotDivisbleBy' :: Int -> Int -> Maybe Bool
-    isNotDivisbleBy' a b = fmap not (isDivisbleBy a b) 
-
-    isNotDivisibleBy'' :: Int -> Int -> Maybe Bool
-    isNotDivisibleBy'' a b = not <$> isDivisbleBy a b
-    {% endcall %}
-
-    <p>
-    Alright, let's break it down. To be a Functor means nothing more than having
-    implemented the function <code>fmap</code> which can also be used as an operator under the
-    alias <code>&lt;$&gt;</code>, the only difference is the location of the arguments. Let's see
-    what fmap's type tells us:
-    </p>
-
-    {% call macros.code("haskell") %}
-    fmap :: Functor f => (a -> b) -> f a -> f b
-
-    -- Let's translate that to the Maybe Functor specificially
-
-    fmap :: (a -> b) -> Maybe a -> Maybe b
-    {% endcall %}
-
-    So what fmap does is given a function from (a -> b) and a Maybe containing
-    an 'a', it returns a new Maybe containing a 'b' (Explaining haskell orally is
-    a tough experience). All it does is just wrap
-    that strenuous switch statement. It is nothing more than syntax sugar! We can
-    do this too in C#. Now it might seem obvious to implement this via inheritance 
-    and abstract methods, but I prefer to use extension methods, this will allow us
-    to explicitly pattern match, just like we do in haskell. In the future it will
-    also prove very useful for saving a lot of typing by having a catch clause if
-    the behavior is the same for many instances.
-
-    {% call macros.code("csharp", source=Msrc) %}
-    public static Maybe<TOut> fmap<TIn, TOut>(
-                   this Maybe<TIn> maybe, 
-                   Func<TIn, TOut> func)
-    {
-      switch(maybe)
-      {
-        case Nothing<TIn> _: 
-          return new Nothing<TOut>();
-        case Just<TIn> just: 
-          return new Just<TOut>(func(just.Value));
-        default: 
-          throw new Exception("Don't inherit from Maybe yourself!!!");
-      }
-    }
-
-    // Let's do it the other way around as well!
-    public static Maybe<TOut> fmap<TIn, TOut>(
-                   this Func<TIn, TOut> func)
-                   Maybe<TIn> maybe)
-    {
-      return maybe.fmap(func);
-    }
-    {% endcall %}
-
-    Now returning to our original function, we can do it like haskell:
-
-    {% call macros.code("csharp") %}
-    public void Maybe<bool> IsNotDivisbleBy(int a, int b)
-    {
-      return (x => !x).fmap(IsDivisbleBy(a, b));
-    }
-    {% endcall %}
-
-    <h2>2. Applicative</h2>
-    <p>
-    To be an applicative means, just like being a functor, nothing more that implementing
-    a function. In this case <code>liftA2</code>. A less general version, but much more commonly used is
-    the operator <code>&lt;*&gt;</code>. We will focus on <code>&lt;*&gt;</code> (called <code>ab</code>) for now.
-
-    {% call macros.code("haskell") %}
-    (<*>) :: Applicative f => f (a -> b) -> f a -> f b
-
-    --Again, let's translate that to specifically Maybe
-
-    (<*>) :: Maybe (a -> b) -> Maybe a -> Maybe b
-    {% endcall %}
-
-    This looks very familiar to fmap, the only difference is that the function is contained
-    in the Maybe. You might ask yourself why anyone would put that function inside a Maybe.
-    The reason for this is actually fmap. To understand how fmap does that we must first
-    understand haskell's notion of partially applied functions:
-
-    {% call macros.code("haskell") %}
-    plus :: Int -> Int -> Int
-    plus a b = a + b
-
-    -- Plus one is simply a weaker version of the more generic plus
-    plusOne :: Int -> Int
-    plusOne = plus 1
-
-    -- Giving a function it's non-last argument simply yields a 
-    -- new function with one argument less.
-    {% endcall %}
-
-    Now let's look back at fmap:
-
-    {% call macros.code("haskell") %}
-    (<$>) :: (a -> b) -> Maybe a -> Maybe b
-
-    plus <$> :: Maybe a -> Maybe b
-    plus <$> (Just 1) :: Maybe (Int -> Int)
-
-    -- (a -> b) means any a to any b. In our case:
-    -- a :: Int
-    -- b :: Int -> Int (Just like with plusOne)
-    {% endcall %}
-    </p>
-
-    And that is how our function ends up inside a Maybe. But if now want to
-    supply the second argument to our function we cannot do that with fmap
-    anymore. This is where our Applicative property comes in handy.
-
-    {% call macros.code("haskell") %}
-    (<*>) :: Maybe (a -> b) -> Maybe a -> Maybe b
-
-    plus <$> Just 1 :: Maybe (Int -> Int)
+<!DOCTYPE html>
+<html lang="UTF-8">
+<head>
+  
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+  <script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="/public/pygments.css">
+  <link rel="stylesheet" type="text/css" href="/public/style.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  
+  
+  
+  <link rel="alternate" type="application/rss+xml" title="Hugo's Blog" href="/feed.xml">
+  <link rel="icon" href="/posts/3/favicon">
+  <title>盛香亭餐饮的研究报告</title>
+</head>
+<body>
+  
+
+  
+    <header>
+    <div class="logo"><a href="/">shqzzy's Blog</a></div>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle">
+    <nav>
+        <a href="/">Home</a>
+        <a href="/posts">Posts</a>
+        <a href="/feed.xml">RSS</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle-label">
+        <span></span>
+    </label>
+</header>
+  
+
+  <div class="content">
+    <div class="content-page">
     
-    -- Do see the similarity? ^
-
-    plus <$> Just 1 <*> Just 2 :: Maybe Int
-    {% endcall %}
-
-    After fmap'ing one Maybe argument into a normal function we can use
-    <*> to pipe in the other arguments. We now are able to perform what
-    are known as compositions!
-
-    {% call macros.code("haskell") %}
-    meh :: Int -> Maybe Int
-
-    getTwoNumbers :: Int -> Int -> Maybe (Int, Int)
-    getTwoNumbers a b = (,) <$> meh a <*> meh b
-    {% endcall %}
-
-    Let's see if we can do this in C#:
-
-    {% call macros.code("csharp", source=Msrc) %}
-    public static Maybe<TOut> ab<TArg, TOut>(
-          this Maybe<Func<TArg, TOut>> maybe, 
-          Maybe<TArg> maybe_arg)
-    {
-        switch (maybe)
-        {
-            case Nothing<Func<TArg, TOut>> _: return new Nothing<TOut>();
-            case Just<Func<TArg, TOut>> just:
-                switch (maybe_arg)
-                {
-                    case Nothing<TArg> _: return new Nothing<TOut>();
-                    case Just<TArg> arg:
-                        return new Just<TOut>(just.Value(arg.Value));
-                    default: throw new Exception("Do not derive from Maybe yourself!");
-                }
-            default: throw new Exception("Do not derive from Maybe yourself!");
+  <div class="code-languages">
+    
+    <div class="code-language">html</div>
+    
+    <div class="code-language">css</div>
+    
+  </div>
+  <h1>盛香亭餐饮的研究报告</h1>
+  
+  <h1>盛香亭餐饮的研究报告</h2>
+  <style>
+       
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
-    }
-    {% endcall %}
-
-    Now to top it all off, the plus with composition function in C#!
-
-    {% call macros.code("csharp", source=Dsrc) %}
-    public static class PlusDemo
-    {
-        /// <summary>
-        /// Returns a nested function, this way we can apply
-        /// arguments one by one.
-        /// </summary>
-        public static Func<int, Func<int, int>> Plus()
-        {
-            return x => y => x + y;
+        .title {
+            text-align: center;
+            font-size: 28px;
+            color: #b33a3a;
+            margin-bottom: 25px;
+            font-weight: bold;
         }
-
-        public static Maybe<int> SometimesValue()
-        {
-            return new Just<int>(5);
+        .nav {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 18px;
+            background-color: #fdf6ee;
+            padding: 14px 10px;
+            border-radius: 6px;
+            margin-bottom: 30px;
         }
-
-        public static Maybe<int> Demo()
-        {
-            return Plus().fmap(SometimesValue()).ab(SometimesValue());
+        .nav a {
+            text-decoration: none;
+            color: #5a3a2e;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 6px 10px;
         }
-    }
-    {% endcall %}
-
-
-    <h2>3. Monad</h2>
-    And for our grand finale... The most complicated thing in our known universe,
-    harder than quantum mechanics: Monads! Actually that's not true, just like Functor
-    and Applicative, to be a Monad just means having implemented a function, or 2 in this
-    case. Let's meet them:
-
-    {% call macros.code("haskell") %}
-    (>>=) :: Monad m => m a -> (a -> m b) -> m b
-    (return) :: Monad m => a -> m a
-    pure = return
-
-    -- Again, specifically for Maybe
-    (>>=) :: Maybe a -> (a -> Maybe b) -> Maybe b
-    (return) :: a -> Maybe a
-    {% endcall %}
-
-    <p>
-    Now this is where it gets confusing for most people. First let's acknowledge the
-    fact that we have muddied the waters by using the word return. So let's be loud
-    and clear about the following:
-    </p>
-
-    <h3>return in haskell has absolutely nothing to do with the return in C#!!!</h3>
-
-    <p>
-    With the damage already done, I can also say that haskell has an operator named
-    'pure' which does exactly the same thing. In our C# implementation we will use
-    that word to make things less ambiguous. 
-    </p>
-
-    <p>
-    So this weird <code>&gt;&gt;=</code> operator, what does it do? First of all, that operator is called
-    bind and many would say is the most powerful operator in functional languages. What
-    it does is again not that complicated. Give it a function and it will decide for 
-    you whether it can actually execute it. This very similar to fmap except that the function
-    we provide already returns an instance of that same monad, i.e. Maybe. This allows
-    us to go in, evaluate the value and return a new instance of that monad.
-
-    {% call macros.code("haskell") %}
-    destroyIfEven :: Maybe Int -> Maybe Int
-    destroyIfEven input = case input of
-        Nothing -> Nothing
-        Just x -> if (even x) then Just x else Nothing
-
-    -- But now much shorter with bind!
-
-    destroyIfEven' :: Maybe Int -> Maybe Int
-    destroyIfEven' input = input >>= \x ->
-        if (even x) then Just x else Nothing
-    {% endcall %}
-
-    Alright, that's all cool and dandy, but where does <code>pure</code> or <code>return</code> come in?
-    Well, just like its type signature reveals, it simply takes a normal value and
-    puts it in a monad. For <code>Maybe</code> that operation is not that hard to imagine...
-    We can just put it in a <code>Just</code>! And yes, that is what happens, <code>pure</code> for <code>Maybe</code> is
-    simply the <code>Just</code> constructor. We could have more generally written:
-
-    {% call macros.code("haskell") %}
-    destroyIfEven'' :: Maybe Int -> Maybe Int
-    destroyIfEven' input = input >>= \x ->
-        if (even x) then pure x else Nothing
-    {% endcall %}
-    </p>
-
-    A keen reader may recognize that this is actually very similar to Promises in
-    javascript. And indeed that is very correct! In haskell we even have something
-    similar to callback hell. Luckily there is more syntax sugar for that, but that's for
-    another time. Let's do it in C#:
-
-    {% call macros.code("csharp", source=Msrc) %}
-    public static Maybe<TOut> bind<TIn, TOut>(
-        this Maybe<TIn> maybe,
-        Func<TIn,Maybe<TOut>> func)
-    {
-        switch (maybe)
-        {
-            case Nothing<TIn> _: return new Nothing<TOut>();
-            case Just<TIn> just: return func(just.Value);
-            default: 
-              throw new Exception("Do not derive from Maybe yourself!");
+        .nav a:hover {
+            color: #b33a3a;
+            font-weight: bold;
         }
-    }
+        .section {
+            margin-bottom: 35px;
+            line-height: 1.75;
+        }
+        .section h2 {
+            font-size: 20px;
+            color: #b33a3a;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eee;
+        }
+        .section p {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        
+    </style>
+<div class="container">
+        <h1 class="title">盛香亭热卤品牌研究报告</h1>
 
-    public static Maybe<T> pure<T>(this T value)
-    {
-        return new Just<T>(value);
-    }
-    {% endcall %}
+        <div class="nav">
+            <a href="#intro">盛香亭介绍</a>
+            <a href="#founder">夫妻创始人采访</a>
+            <a href="#media">媒体采访</a>
+            <a href="#marketing">社区营销学</a>
+            <a href="#shortage">存在缺点</a>
+            <a href="#inspiration">借鉴学习</a>
+        </div>
 
-    Now let's see what our 'destroyIfEven' were to look like:
+        <div id="intro" class="section">
+            <h2>盛香亭介绍</h2>
+			<p>
+			<img src="https://img.xiangmu.com/info/202208/09/1660045955UF4LM4O.png" alt="盛香亭" height="200px"/> 
+			<img src="http://img.xiangmu.com/info/202208/09/1660045961RT2LVS7.png" alt="盛香亭" height="200px"/> 
+			<img src="http://img.xiangmu.com/info/202208/09/1660045967YPF8UV2.png" alt="盛香亭" height="200px"/> 
+			</p>
+            <p>盛香亭是国内率先聚焦<strong>新式热卤</strong>的轻餐连锁品牌，2016年诞生于湖南长沙，由廖宗毅、李凌子夫妻联合创立，主打<strong>当日鲜卤、现卤现拌</strong>，以年轻化、标准化、高性价比的热卤产品快速占领市场。</p>
+            <p>品牌以“不负盛名，闻香识亭”为理念，将传统湘式热卤与现代餐饮管理结合，构建中央厨房、冷链配送、明档现制的全链路体系，主打虎皮凤爪、卤猪蹄、牛肉、藕片、豆干等产品，口味鲜香软糯，深受年轻群体喜爱。</p>
+            <p>盛香亭率先提出<strong>现卤现拌</strong>标准：每日新鲜卤制、拒绝隔夜卤水，顾客点单后现场拌制，从出锅到入口不超过5分钟，兼顾口感与食品安全。经过多年发展，门店覆盖全国多省市，获得腾讯等机构投资，成为热卤赛道头部品牌之一。</p>
+			<p>大股东列表:
+			<ul>
+			 <li>绝味食品（通过深圳网聚投资）：11.5084%+间接 合计约 28.92%
+			 <li>廖宗毅直接持股：14.7085% ,夫妻二人直接 + 核心关联合计持股约 23.59%
+			 <li>腾讯（深圳市腾讯信息技术有限公司）：9.8324%
+			 <li>	
+			</ul>
+        </div>
 
-    {% call macros.code("csharp", source=Dsrc) %}
-    public static Maybe<int> DestroyIfEven(Maybe<int> input)
-    {
-        return input.bind(x => x % 2 == 0 
-            ? new Nothing<int>() 
-            : x.pure());
-    }
-    {% endcall %}
+        <div id="founder" class="section">
+            <h2>夫妻创始人采访（核心要点）</h2>
+            <p><strong>廖宗毅（创始人）</strong>：长沙人，初中 / 高中在长沙麓山国际学校，后去英国读大一，英国留学，加盟2006-2016过赛百味（Subway）赚了300万元，2016年创盛香亭品牌，擅长标准化体系搭建与供应链管理，强调“不做网红，要做长久的网绿品牌”，坚持用供应链与品控支撑长期发展。</p>
+            <p><strong>李凌子（创始人兼CEO）</strong>：早年在长沙政法频道情感栏目记者，负责产品与运营管理，信奉“死磕产品与品质”，注重用户体验与门店精益管理，坚持不编造品牌故事，靠真实产品与口碑立足市场。</p>
+            <p><strong>创业初心</strong>：发现传统热卤多为街边零散小店，缺乏品牌化、标准化运营，而年轻人对安全、便捷、好吃的热卤需求强烈，于是决定把街头热卤做成连锁品牌，让热卤成为正餐与休闲皆宜的选择。</p>
+            <p><strong>经营理念</strong>：坚持透明化、健康化、年轻化，拒绝添加剂，严控食材新鲜度，用高性价比与稳定口味留住顾客，不靠营销噱头，靠产品复购支撑增长。</p>
+            <div class="img-box">
+                <img src="liaozhongyi_yunth.png" height="200px" alt="盛香亭创始人 廖宗毅">
+                <img src="liningzi.png" height="200px"  alt="盛香亭创始人 李凌子">
+                <p>盛香亭联合创始人 廖宗毅、李凌子</p>
+            </div>
+			<p>采访的视频链接：
+			<ul>
+			 <li>https://v.douyin.com/qNEtgTcqdOk/  2024年3月15日 
+   <li>https://v.douyin.com/odV0JH7l7vw/  2024年8月26日 40天培训，2次考核 供应链自己不生产，还是选品，追求质价比，不做网红，做网绿（常时间稳定输出），本人爱吃，爱陶瓷。
+   <li>https://v.douyin.com/GWftANy4oYs/  2023年11月30日 廖宗毅英国留学，加盟了洋快餐 盛香亭55%毛利率，很难突破500家。翻台率9，知道年轻人需要什么？周周上新，坏店率控制在 5%。境由心转的理论，不要怪外部环境。用三禾集团的传送设备。英国照片 : 
+   <li>https://v.douyin.com/k7I-NQolPvA/  https://v.douyin.com/MZQEbNPvt5A/  2021年7月28日 李凌子演示卤料的制造过程。
+			</ul>
+        </div>
 
-    Pretty gnarly no? 
+        <div id="media" class="section">
+            <h2>媒体采访（核心报道）</h2>
+            <p>多家财经与餐饮媒体对盛香亭进行深度报道，聚焦其模式创新、供应链与融资发展。</p>
+            <p>1. <strong>模式创新</strong>：从传统档口店升级为<strong>转转热卤</strong>，回转台自选、按碟计价，适配一人食、快餐场景，提升效率与体验，被媒体称为热卤赛道的创新样本。</p>
+            <p>2. <strong>供应链与品控</strong>：媒体肯定其中央厨房统一配卤、冷链直达、明档操作、打烊废弃机制，认为其标准化体系是快速扩张的关键，同时也指出加盟扩张下的品控一致性挑战。</p>
+            <p>3. <strong>食品安全回应</strong>：针对过往门店问题，媒体记录其整改、巡检、透明化公示等措施，品牌表示持续强化品控，守住安全底线。</p>
+			<p>2024 年绝味再次投资 1200 万；2022 年 4 月转型，2023 年聚焦湖南、湖北、广东、江西四省发展。<br/> 员工店员绩效参考:<img src="stuff_salary.jpg" alt="盛香亭员工绩效" height="200px"/>
+			 
+			<ul>
+			<li><strong>快餐思维重做转转火锅的新模型（2022.4 起）：转转小火锅 + 热卤融合，店型扩大到50–120㎡，吧台环形动线、一人一锅、自助取菜，正餐化、可久坐，人均 30–50 元。</strong>
+			  <p> https://v.douyin.com/XOrE2PWhhUc/ 1. 和转转小火锅差异化，做转转热卤, <br/>2. 锅底也放在动线上面自取 <br/>3.所有的产品小量化改为小方盘视觉平面化<br/> 4. 店内大量文字说菜，增加菜的知识，减少服务员沟通成本
+			 <li> https://mp.weixin.qq.com/s/8yXn3W-WevLCLzYLFHH8PA  陈彦如是辣卤品牌盛香亭的新媒体运营:现代年轻人追求个性的价值观,几乎一刻不停在维持着与网友的联系。她的日常工作除了编辑和发布活动文章，还包括管理线上的“小盛留声机”，这是盛香亭在公众号上开辟出来专门收集食客意见的渠道。陈彦如分析出互动最活跃的是18至30岁的女性，她们名字和头像很可爱，留言的口吻朝气活泼、轻松有趣，其中很多人甚至保持了长期互动,盛香亭通过小程序和公众号形成了一套完整的品牌营销+运营+客户反馈的线上经营模式
+   <br/>
+   盛香亭门店负责人，爹爹阿姨那一辈的会更想尝试比较创新的小吃，例如虎皮鸡爪，既是卤味，又比较软糯，很适合他们,张胜男也有自己的心得,在客流爆棚的高峰期，要想更快速地引导食客，她必须尽一切可能提升餐厅的流动性
+   </li>
+   
+   <li>https://mp.weixin.qq.com/s/S2wyDjZW3YQW8l6iA7wBdg  廖宗毅的妻子李凌子，做过长沙政法频道的记者，也就是现在的盛香亭创始人兼CEO李凌子。李凌子：安格斯牛肉做成卤牛肉，搭配桂林米粉，做出来的爆款。<br/>
+   标准化的核心还是供应链。只有稳定、可控、可追溯的供应链，才能达到市场对好吃、健康、标准化的新要求.
+			</ul>
+        </div>
 
-    <h2>Functions are not methods</h2>
-    <p>
-    When OO programmers talk to each other, these words are often used interchangeably.
-    This is understandable because in languages as C# there is not really a clear cut
-    difference. You could argue that a function is something that depends only on it's
-    input: something that is known as pure function. But hey, are all functions then pure?
-    Then why was the word invented?
-    </p>
+        <div id="marketing" class="section">
+            <h2>社区营销学</h2>
+            <p>盛香亭以<strong>年轻社群运营</strong>为核心，构建线上线下一体化的社区营销体系，强化用户粘性与口碑传播。</p>
+            <p>• <strong>线下社群</strong>：门店建立顾客群，推送新品、优惠、会员日活动，开展到店打卡、满减、套餐优惠，提升复购；商场店依托商圈客流，做场景化体验与口碑扩散。</p>
+            <p>• <strong>线上内容</strong>：在抖音、小红书、微博等平台发布产品制作、探店、新品测评，鼓励用户UGC分享，发起菜品征集、话题互动，用年轻化内容触达目标群体。</p>
+            <p>• <strong>会员体系</strong>：积分兑换、生日福利、会员专享价，提升用户留存；推出组合套餐、晚间优惠，平衡客流与食材损耗，增强社群活跃度。</p>
+            <p>• <strong>场景渗透</strong>：地铁主题列车、城市联名活动，强化地域文化与品牌绑定，提升品牌好感度与曝光，形成“城市+品牌”的社群记忆点。</p>
+			<ul>
+			<li> <p> https://weixin.qq.com/sph/AdTW2W8bSL 2021年1月1日 说到三点，盛香亭在社区方面的创新 一，门店数据化，小程序点单，扫码。二，私域转化，公众号和小程序的沉淀会员做线上活动 伙伴券，员工券; 三，用户思维，开通留声机获取顾客的需求，小步试错。</p>
+			<li> <p>
+ 品牌发展历程：盛香亭 2016 年成立，前身为盛香亭热卤，巅峰时有 400 多家店；2022 年因广州食品安全问题闭店至 200 多家，闭店率 50%；2019 年、2021 年分别获机构及腾讯、绝味旗下网聚的投资，2024 年绝味再次投资 1200 万；2022 年 4 月转型（放弃零售走食），2023 年聚焦湖南、湖北、广东、江西四省发展。</p>
+<p>精准定位策略：主打麻辣烫升级版，客单价 30-40 元；设 8 种热卤小锅底，零售价 10 元、团购价 6.8 元；门店布局商场负一层快餐区一二线点位，采用明亮干净的新中式装修，符合年轻人审美。</p>
+<p>单店运营数据：加盟费等累计 3.98 万元，标准门店 150 平，单店建设成本 150-170 万元；月营业额 18-30 万元，加盟商毛利 55%-60%，月净利润 4-5 万元，回本周期约 3 年。</p>
+			
+			</ul>
+			<p>优秀抖音达人链接案例: 关键字：盛香亭好在哪
+			<ul>
+			<li>长沙盛香亭隐藏吃法大合集！N刷总结！附调料攻略！ https://v.douyin.com/QcEUsGHglNU/ 5万互动
+			<li>盛香亭隐藏吃法 附调料攻略！ https://v.douyin.com/-Sexun0OITw/ 4万互动
+			<li>盛香亭教程攻略！  https://v.douyin.com/5JR5hQTQQvY/ 2万互动
+			<li> 盛香亭十周年！！！你的必吃是什么！  https://v.douyin.com/W4Bdlbvokjg/ 复制此链接 2万互动
+			<li> 一个人勇闯盛香亭DIY寿喜锅，这几个蘸料配方记得收藏  https://v.douyin.com/EClU-g2tx3k/ 复制此链接 2万互动
+			</ul>
+			<p>小红书达人链接案例: 
+			<ul>
+			<li>【盛香亭激推，方便自己以后拿取餐品。https://www.xiaohongshu.com/discovery/item/69fda6720000000035021a90
+			<li>【盛香亭吃不下5次给大家的建议。https://www.xiaohongshu.com/discovery/item/68bd5b07000000001d00f061
+			<li>【盛香亭最新最全隐藏吃法！（N刷总结攻略）https://www.xiaohongshu.com/discovery/item/68f4e4750000000004028f4d
+			<li>【服务员都看傻了‼️盛香亭隐藏吃法大公开  https://www.xiaohongshu.com/discovery/item/69bd2236000000001a0240a7
+			<li>【盛香亭top1是什么！ https://www.xiaohongshu.com/discovery/item/69d91936000000002100544e
+			<li>【点一份超级酷的周年庆礼物🎁你充值，我报销 - 盛香亭热卤https://www.xiaohongshu.com/discovery/item/69e59ddf0000000021004c27
+			</ul>
+        </div>
 
-    <p>
-    When people describe haskell they often say "Everything is function!". What they
-    mean is that there no such thing as statements. You cannot say: "Execute this function
-    right now." The only thing you can do is describe the transformation of objects.
-    For example the DestroyIfEven function describes a transformation to something else.
-    Whilst this all sounds very restrictive, it actually allows you to very intuitively
-    compose larger and larger transformations until you can do something very useful. The
-    great thing is that the compiler can help you way better with ensuring everything is
-    working, allowing to build far less error prone code. 
-    </p>
-
-    <h2>Summary and Conclusion</h2>
-    <p>
-    We looked at how we can port the concept of functions that may or may not succeed
-    to C#. We then looked at what other properties the Maybe has in haskell to see
-    if we can bring back more. As a result of that we now have a C# class that can arguably be
-    called an Applicative Functor, as well as a Monad.
-    </p>
-
-    <p>
-    Of course we haven't made C# adhere to the same guarantees that haskell gives us,
-    but I think it's interesting to see that are a lot more ingenious concepts to 
-    borrow from functional languages than is currently often done. 
-    </p>
-
-    <p>
-    Despite the success, the main purpose of this experiment was not to improve
-    C#, but to learn about Functors, Applicatives and Monads using tools we are already
-    familiar with. In part 2 we will be looking at how we can create a linked list in
-    C#, which is, just like Maybe, also an Applicative Functor and a Monad.
-    </p>
-                    
+        <div id="shortage" class="section">
+            <h2>存在缺点</h2>
+			<ul>
+			 <li>1. 味道太大，身上都是味</li>
+   <li>2. 排队被倒卖，有些恶意排队</li>
+   <li>3. 补菜和肉类校少，素菜居多</li>
+   <li>4. 锅底一般、越吃越咸：</li>
+   <li>5. 卤肉饭肉少饭多：</li>
+			</ul>
+           
+        </div>
+		
+		<div id="inspiration" class="section">
+            <h2>借鉴的地方</h2>
+			<ul>
+			 <li>目前还没有 公众号 / 小程序,要开始布局，让用户可以在官方留言→研发产品迭代
+			 <ul>
+			 <li>小程序：点单 / 储值 / 会员 / 意见反馈，消费后自动推送评价；
+<li>留言区：专人回复（24h 内），顾客提的口味 / 分量问题，一周内落地优化；参考https://www.wjx.cn/jq/113132367.aspx
+<li>私域福利：会员日 8 折、生日免锅底、拉新送小食，锁定高频客；
+<li>内容：真实探店、后厨透明、顾客好评，不夸大、不造假。</ul></li>
+			 <li>后厨明档 + 直播，顾客可见操作； 每店公示食材溯源 + 检测报告 + 卫生评分；
+			 <li>日常轻正餐 + 一人食社交 小红书 / 抖音全是真实探店，信任度回升 不做付费营销
+			 <li>数字化覆盖：点单、库存、损耗、会员、客诉，总部实时看单店数据，快速响应问题。
+			</ul>
+           
+        </div>
+		
+    </div>
 
 
-{% endblock %}
+    
+    <div id="gitalk-container"></div>
+<script>
+const gitalk = new Gitalk({
+  clientID: "Ov23lixyZTBppXMDgOi6",
+  clientSecret: "50ab871146341a5098650e8f445b2a0c9d3e743d",
+  repo: 'shqzzy.github.io',      // The repository of store comments,
+  owner: 'shqzzy',
+  admin: ['shqzzy'],
+  id: "3",      // Ensure uniqueness and length less than 50
+  number: "3",
+  distractionFreeMode: false  // Facebook-like distraction free mode
+})
+
+gitalk.render('gitalk-container')
+</script>
+    
+  <div class="modified-at"> 
+    <small>last modified: Jun 02, 2026 at 16:56</small>
+  </div>
+
+
+    </div>
+  </div>
+
+  
+    <footer>
+    &middot;  &middot; running on github pages
+</footer>
+  
+
+</body>
+</html>
