@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>菜品营养知识答题系统（带菜品图片）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        /*登录区*/
+        .login-box {
+            text-align: center;
+            padding: 40px 0;
+        }
+        .login-box h2 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .input-name {
+            width: 320px;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+        .input-name:focus {border-color: #3498db;}
+        .btn {
+            padding: 12px 32px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover {background-color: #2980b9;}
+        /*答题区*/
+        .exam-box {display: none;}
+        .user-info {
+            text-align: right;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-size:15px;
+        }
+        .title {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom:30px;
+        }
+        .question-item {
+            display:flex;
+            gap:20px;
+            margin-bottom:28px;
+            padding:20px;
+            border:1px solid #eee;
+            border-radius:8px;
+            align-items:center;
+        }
+        .dish-img{
+            width:140px;
+            height:120px;
+            object-fit:cover;
+            border-radius:6px;
+            border:1px solid #eee;
+        }
+        .q-content{flex:1;}
+        .question-title {
+            font-size:16px;
+            color:#2c3e50;
+            margin-bottom:15px;
+            line-height:1.7;
+        }
+        .options {display:flex; gap:22px;}
+        .option {
+            padding:9px 24px;
+            border:1px solid #ddd;
+            border-radius:5px;
+            cursor:pointer;
+            transition:0.2s;
+        }
+        .option:hover {background:#f0f4f8;border-color:#3498db;}
+        .option.selected {background:#3498db;color:#fff;border-color:#3498db;}
+        .submit-btn {
+            display:block;
+            margin:40px auto 0;
+            background:#e74c3c;
+        }
+        .submit-btn:hover {background:#c0392b;}
+        /*成绩页*/
+        .result-box {display:none;text-align:center;padding:40px 0;}
+        .result-box h2 {color:#27ae60;margin-bottom:20px;}
+        .score {
+            font-size:50px;
+            font-weight:bold;
+            color:#e67e22;
+            margin:25px 0;
+        }
+        .restart-btn {
+            margin-top:30px;
+            background:#9b59b6;
+        }
+        .restart-btn:hover {background:#8e44ad;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!--登录输入姓名-->
+        <div class="login-box" id="loginBox">
+            <h2>菜品营养知识答题系统</h2>
+            <input type="text" class="input-name" id="userName" placeholder="请输入答题人姓名">
+            <br>
+            <button class="btn" onclick="startExam()">开始随机答题</button>
+        </div>
+        <!--答题页面-->
+        <div class="exam-box" id="examBox">
+            <div class="user-info" id="userInfo"></div>
+            <h2 class="title">营养判断题（每题20分，满分100）</h2>
+            <div id="questionContainer"></div>
+            <button class="btn submit-btn" onclick="submitExam()">提交全部答案</button>
+        </div>
+        <!--成绩结果-->
+        <div class="result-box" id="resultBox">
+            <h2>答题结束！</h2>
+            <p id="resultText"></p>
+            <div class="score" id="finalScore"></div>
+            <button class="btn restart-btn" onclick="restartExam()">重新答题（刷新随机新题目）</button>
+        </div>
+    </div>
+
+    <!--引入外置菜品数据库dishes.js 关键优化点2-->
+    <script src="./dishes.js"></script>
+    <script>
+        let currentQuestions = [];
+        let userAnswers = [];
+        let userName = "";
+        const allDishList = dishData.菜品全量营养库;
+
+        // 数组洗牌：每次随机打乱全库，取前5题（优化3：每次刷新/重新答题都是全新随机5题）
+        function shuffleArr(arr){
+            let newArr = [...arr];
+            for(let i=newArr.length-1;i>0;i--){
+                let r = Math.floor(Math.random()*(i+1));
+                [newArr[i],newArr[r]] = [newArr[r],newArr[i]];
+            }
+            return newArr;
+        }
+        function getRandomFive(){
+            let shuffleList = shuffleArr(allDishList);
+            return shuffleList.slice(0,5);
+        }
+
+        //进入答题
+        function startExam(){
+            userName = document.getElementById("userName").value.trim();
+            if(!userName){
+                alert("请填写姓名再开始！");
+                return;
+            }
+            //切换页面
+            document.getElementById("loginBox").style.display="none";
+            document.getElementById("examBox").style.display="block";
+            document.getElementById("userInfo").innerText="答题人："+userName;
+            //随机5题
+            currentQuestions = getRandomFive();
+            userAnswers = new Array(5).fill(null);
+            renderQuestion();
+        }
+
+        //渲染题目+菜品图片（优化1：左侧菜品图，右侧题目）
+        function renderQuestion(){
+            let wrap = document.getElementById("questionContainer");
+            wrap.innerHTML = "";
+            currentQuestions.forEach((item,idx)=>{
+                let html = `
+                <div class="question-item">
+                    <img class="dish-img" src="${item.img}" alt="${item.菜品名称}">
+                    <div class="q-content">
+                        <div class="question-title">
+                            第${idx+1}题【${item.菜品名称}】<br>
+                            营养参数：每100ml能量${item["每100ml能量(kcal)"]}kcal、蛋白质${item["每100ml蛋白质(g)"]}g、脂肪${item["每100ml脂肪(g)"]}g<br>
+                            问题：该食材是否属于抗炎抗氧化食材？
+                        </div>
+                        <div class="options">
+                            <div class="option" onclick="choose(${idx},true,this)">是</div>
+                            <div class="option" onclick="choose(${idx},false,this)">否</div>
+                        </div>
+                    </div>
+                </div>
+                `;
+                wrap.innerHTML += html;
+            })
+        }
+
+        //选择答案
+        function choose(index,val,dom){
+            userAnswers[index]=val;
+            let ops = dom.parentElement.querySelectorAll(".option");
+            ops.forEach(o=>o.classList.remove("selected"));
+            dom.classList.add("selected");
+        }
+
+        //判分提交
+        function submitExam(){
+            if(userAnswers.includes(null)){
+                alert("还有题目未作答，不能提交！");
+                return;
+            }
+            let score=0;
+            currentQuestions.forEach((item,i)=>{
+                if(item["是否抗炎抗氧化食材"] === userAnswers[i]) score+=20;
+            })
+            //跳转成绩
+            document.getElementById("examBox").style.display="none";
+            document.getElementById("resultBox").style.display="block";
+            document.getElementById("resultText").innerText = `${userName}，本次测评得分：`;
+            document.getElementById("finalScore").innerText = score+" 分";
+        }
+
+        //重置回到登录，再次随机出题
+        function restartExam(){
+            document.getElementById("resultBox").style.display="none";
+            document.getElementById("loginBox").style.display="block";
+            document.getElementById("userName").value="";
+            userName="";
+            currentQuestions=[];
+            userAnswers=[];
+        }
+    </script>
+</body>
+</html>
