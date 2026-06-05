@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>喜太熊轻火锅菜品营养知识答题（带菜品图片）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1">
+    <title>喜太熊菜品营养知识答题系统</title>
     <style>
         * {
             margin: 0;
@@ -13,13 +13,13 @@
         }
         body {
             background-color: #f5f7fa;
-            padding: 20px;
+            padding: 12px;
         }
         .container {
-            max-width: 900px;
-            margin: 50px auto;
+            max-width: 950px;
+            margin: 30px auto;
             background: white;
-            padding: 30px;
+            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.1);
         }
@@ -33,7 +33,7 @@
             margin-bottom: 30px;
         }
         .input-name {
-            width: 320px;
+            width: min(320px,90%);
             padding: 12px;
             font-size: 16px;
             border: 1px solid #ddd;
@@ -58,50 +58,121 @@
         .user-info {
             text-align: right;
             color: #7f8c8d;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             font-size:15px;
         }
         .title {
             text-align: center;
             color: #2c3e50;
-            margin-bottom:30px;
+            margin-bottom:20px;
+            font-size:clamp(22px,4vw,30px);
         }
+        /*单题外层布局*/
         .question-item {
             display:flex;
             gap:20px;
-            margin-bottom:28px;
-            padding:20px;
+            margin-bottom:22px;
+            padding:18px;
             border:1px solid #eee;
-            border-radius:8px;
+            border-radius:10px;
             align-items:center;
         }
+        /* 图片+圆环 共用容器：PC横向、手机纵向 */
+        .img-ring-wrap{
+            display:flex;
+            gap:16px;
+            align-items:center;
+            flex-shrink:0;
+        }
+        @media screen and (max-width:768px){
+            .question-item{
+                flex-direction:column;
+                align-items:center;
+                text-align:center;
+                gap:14px;
+                padding:14px;
+            }
+            .img-ring-wrap{
+                flex-direction:column;
+            }
+            .options{
+                justify-content:center;
+            }
+        }
+        /* 菜品图片尺寸 */
         .dish-img{
-            width:140px;
-            height:120px;
-            object-fit:cover;
+            width:min(140px,70vw);
+            height:auto;
+            object-fit:contain;
             border-radius:6px;
             border:1px solid #eee;
         }
-        .q-content{flex:1;}
+        /* 空心环形饼图 */
+        .ring-chart{
+            width:min(160px,38vw);
+            height:min(160px,38vw);
+            position:relative;
+            border-radius:50%;
+            background: conic-gradient(#b37957 var(--pEnd),#d9c997 var(--fEnd),#6c7c52 0);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            margin:8px 0 30px;
+        }
+        .ring-chart::after{
+            content:"";
+            width:55%;
+            height:55%;
+            background:#fff;
+            border-radius:50%;
+            z-index:2;
+        }
+        /*图例在圆环正下方 */
+        .chart-legend{
+            position:absolute;
+            bottom:-26px;
+            left:50%;
+            transform:translateX(-50%);
+            font-size:12px;
+            line-height:1.6;
+            white-space:nowrap;
+        }
+        .legend-item{
+            display:inline-block;
+            margin:0 4px;
+        }
+        .legend-item span{
+            display:inline-block;
+            width:12px;height:12px;
+            margin-right:4px;
+            vertical-align:middle;
+            border-radius:2px;
+        }
+        .color-pro{background:#b37957;}
+        .color-fat{background:#d9c997;}
+        .color-carb{background:#6c7c52;}
+
+        .q-content{flex:1;width:100%;}
         .question-title {
-            font-size:16px;
+            font-size:clamp(15px,2vw,16px);
             color:#2c3e50;
-            margin-bottom:15px;
+            margin:12px 0;
             line-height:1.7;
         }
         .options {display:flex; gap:22px;}
         .option {
-            padding:9px 24px;
+            padding:9px 28px;
             border:1px solid #ddd;
             border-radius:5px;
             cursor:pointer;
             transition:0.2s;
+            font-size:16px;
         }
         .option:hover {background:#f0f4f8;border-color:#3498db;}
         .option.selected {background:#3498db;color:#fff;border-color:#3498db;}
         .submit-btn {
             display:block;
-            margin:40px auto 0;
+            margin:32px auto 0;
             background:#e74c3c;
         }
         .submit-btn:hover {background:#c0392b;}
@@ -125,7 +196,7 @@
     <div class="container">
         <!--登录输入姓名-->
         <div class="login-box" id="loginBox">
-            <h2>喜太熊轻火锅菜品营养知识答题</h2>
+            <h2>喜太熊菜品营养知识答题系统</h2>
             <input type="text" class="input-name" id="userName" placeholder="请输入答题人姓名">
             <br>
             <button class="btn" onclick="startExam()">开始随机答题</button>
@@ -146,7 +217,7 @@
         </div>
     </div>
 
-    <!--引入外置菜品数据库dishes.js 关键优化点2-->
+    <!--引入外置菜品数据库dishes.js -->
     <script src="./dishes.js"></script>
     <script>
         let currentQuestions = [];
@@ -154,7 +225,7 @@
         let userName = "";
         const allDishList = dishData.菜品全量营养库;
 
-        // 数组洗牌：每次随机打乱全库，取前5题（优化3：每次刷新/重新答题都是全新随机5题）
+        // 数组洗牌随机抽5题
         function shuffleArr(arr){
             let newArr = [...arr];
             for(let i=newArr.length-1;i>0;i--){
@@ -175,28 +246,45 @@
                 alert("请填写姓名再开始！");
                 return;
             }
-            //切换页面
             document.getElementById("loginBox").style.display="none";
             document.getElementById("examBox").style.display="block";
             document.getElementById("userInfo").innerText="答题人："+userName;
-            //随机5题
             currentQuestions = getRandomFive();
             userAnswers = new Array(5).fill(null);
             renderQuestion();
         }
 
-        //渲染题目+菜品图片（优化1：左侧菜品图，右侧题目）
+        //渲染题目
         function renderQuestion(){
             let wrap = document.getElementById("questionContainer");
             wrap.innerHTML = "";
             currentQuestions.forEach((item,idx)=>{
+                let carbType = item["碳水类型"] ?? "无碳";
+                let pro = Number(item["每100ml蛋白质(g)"]);
+                let fat = Number(item["每100ml脂肪(g)"]);
+                let carb = Math.max(0,100 - pro - fat);
+                let total = pro + fat + carb;
+
+                let proEnd = total===0 ? "0deg" : `${(pro/total)*360}deg`;
+                let fatEnd = total===0 ? "0deg" : `${((pro+fat)/total)*360}deg`;
+
                 let html = `
                 <div class="question-item">
-                    <img class="dish-img" src="${item.img}" alt="${item.菜品名称}">
+                    <!-- 图片+圆环包裹容器 PC左右并排 -->
+                    <div class="img-ring-wrap">
+                        <img class="dish-img" src="${item.img}" alt="${item.菜品名称}">
+                        <div class="ring-chart" style="--pEnd:${proEnd};--fEnd:${fatEnd}">
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="color-pro"></span>蛋白</span>
+                                <span class="legend-item"><span class="color-fat"></span>脂肪</span>
+                                <span class="legend-item"><span class="color-carb"></span>碳水</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="q-content">
                         <div class="question-title">
                             第${idx+1}题【${item.菜品名称}】<br>
-                            营养参数：每100ml能量${item["每100ml能量(kcal)"]}kcal、蛋白质${item["每100ml蛋白质(g)"]}g、脂肪${item["每100ml脂肪(g)"]}g<br>
+                            每100ml：能量${item["每100ml能量(kcal)"]}kcal｜蛋白${pro}g｜脂肪${fat}g｜碳水分类：${carbType}<br>
                             问题：该食材是否属于抗炎抗氧化食材？
                         </div>
                         <div class="options">
@@ -228,14 +316,13 @@
             currentQuestions.forEach((item,i)=>{
                 if(item["是否抗炎抗氧化食材"] === userAnswers[i]) score+=20;
             })
-            //跳转成绩
             document.getElementById("examBox").style.display="none";
             document.getElementById("resultBox").style.display="block";
             document.getElementById("resultText").innerText = `${userName}，本次测评得分：`;
             document.getElementById("finalScore").innerText = score+" 分";
         }
 
-        //重置回到登录，再次随机出题
+        //重置回到登录
         function restartExam(){
             document.getElementById("resultBox").style.display="none";
             document.getElementById("loginBox").style.display="block";
