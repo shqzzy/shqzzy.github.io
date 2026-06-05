@@ -1,0 +1,81 @@
+// 1. Create right-click menu
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "lookupWordMenu",
+    title: "Look up '%s'", 
+    contexts: ["selection"]
+	
+  });
+});
+
+// 2. Handle right-click click by sending the word to the webpage content script
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "lookupWordMenu" && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, { 
+      action: "showTooltipLoading", 
+      word: info.selectionText.trim() 
+    });
+
+    // Fetch the word data
+    fetchWordData(info.selectionText.trim(), (response) => {
+      chrome.tabs.sendMessage(tab.id, { 
+        action: "showTooltipData", 
+        data: response 
+      });
+    });
+  }
+});
+
+// 3. Keep standard popup support if user clicks the extension toolbar icon
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'fetchWord') {
+    fetchWordData(request.word, sendResponse);
+    return true; 
+  }
+});
+
+// Helper function to handle API calls
+function fetchWordData(word, callback) {
+  const encodedWord = encodeURIComponent(word);
+  const apiUrl = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodedWord}`;
+
+  fetch(apiUrl)
+    .then(response => {
+      if (!response.ok) throw new Error('Word not found');
+      return response.json();
+    })
+    .then(data => {
+      const item = data[0];
+      const phonetics = item.phonetics || [];
+      const meanings = item.meanings || [];
+
+      let audioUrl = '';
+      for (let p of phonetics) {
+        if (p.audio) {
+          audioUrl = p.audio;
+          break;
+        }
+      }
+
+      let definitionsList = [];
+      meanings.forEach(m => {
+        m.definitions.slice(0, 2).forEach(d => { // limit to top 2 definitions for tooltips
+          definitionsList.push({
+            partOfSpeech: m.partOfSpeech,
+            definition: d.definition
+          });
+        });
+      });
+
+      callback({
+        success: true,
+        word: item.word,
+        phonetic: item.phonetic || 'N/A',
+        audio: audioUrl,
+        definitions: definitionsList
+      });
+    })
+    .catch(error => {
+      callback({ success: false, error: error.message });
+    });
+}

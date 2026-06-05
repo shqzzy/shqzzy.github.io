@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      font-family: Arial, sans-serif;
+      margin: 10px;
+      padding: 0;
+      color: #333;
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 5px;
+      color: #1a73e8;
+    }
+    .phonetic {
+      font-style: italic;
+      color: #5f6368;
+      margin-bottom: 15px;
+    }
+    .definition-box {
+      background: #f1f3f4;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .part-of-speech {
+      font-weight: bold;
+      color: #1967d2;
+      font-size: 0.9em;
+    }
+    .example {
+      font-size: 0.85em;
+      color: #5f6368;
+      margin-top: 5px;
+      border-left: 3px solid #ccc;
+      padding-left: 5px;
+    }
+    #error, #loading {
+      text-align: center;
+      color: #d93025;
+    }
+    button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover { background-color: #174ea6; }
+    button:disabled { background-color: #dadce0; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="loading">Detecting selected text...</div>
+  <div id="content" style="display: none;">
+    <h2 id="word-title">Word</h2>
+    <div class="phonetic" id="word-phonetic">/phonetic/</div>
+    <button id="play-audio-btn" disabled>🔊 Play Pronunciation</button>
+	
+	<button id="export-list-btn">&nbsp;&nbsp; 💾 &nbsp;&nbsp;</button>
+	
+    <div id="definitions-container"></div>
+  </div>
+  <div id="error" style="display: none;">Select a word on the page first, or word not found.</div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

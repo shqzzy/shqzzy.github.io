@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "English Word Dictionary & Etymology Lookup",
+  "version": "1.3",
+  "description": "Highlight any English word to get its meaning and pronunciation and Etymology.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "storage",
+    "downloads"
+  ],
+   "host_permissions": [
+    "https://www.etymonline.com/*","https://api.dictionaryapi.dev/*"
+     ],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+       "all_frames": true
+    }
+  ]
+}
