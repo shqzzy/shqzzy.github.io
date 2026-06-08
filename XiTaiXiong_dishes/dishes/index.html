@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1">
-    <title>喜太熊菜品营养知识答题系统</title>
+    <title>菜品营养知识答题系统（碳水逻辑修复版）</title>
     <style>
         * {
             margin: 0;
@@ -196,7 +196,7 @@
     <div class="container">
         <!--登录输入姓名-->
         <div class="login-box" id="loginBox">
-            <h2>喜太熊菜品营养知识答题系统</h2>
+            <h2>菜品营养知识答题系统</h2>
             <input type="text" class="input-name" id="userName" placeholder="请输入答题人姓名">
             <br>
             <button class="btn" onclick="startExam()">开始随机答题</button>
@@ -259,18 +259,23 @@
             let wrap = document.getElementById("questionContainer");
             wrap.innerHTML = "";
             currentQuestions.forEach((item,idx)=>{
-                let carbType = item["碳水类型"] ?? "无碳";
-                let pro = Number(item["每100ml蛋白质(g)"]);
-                let fat = Number(item["每100ml脂肪(g)"]);
-                // 原来错误代码：
-// let carb = Math.max(0,100 - pro - fat);
+                // 1. 直接从数据源读取真实碳水含量，不再用100倒推
+                let pro = Number(item["每100ml蛋白质(g)"] || 0);
+                let fat = Number(item["每100ml脂肪(g)"] || 0);
+                let carb = Number(item["每100ml碳水(g)"] || 0);
+                
+                // 2. 按国标自动判定碳水分类，兜底兼容数据源预设值
+                let carbType;
+                if(item["碳水类型"]){
+                    carbType = item["碳水类型"];
+                }else{
+                    if(carb <= 0.5) carbType = "无碳";
+                    else if(carb <=5) carbType = "低碳";
+                    else carbType = "高碳";
+                }
 
-// 改为直接取库内数据：
-let carb = Number(item["每100ml碳水(g)"] || 0);
-let carbType = item["碳水类型"] ?? (carb <= 0.5 ? "无碳" : "低碳");
-
+                // 3. 饼图只按蛋白/脂肪/碳水三项真实数值算比例
                 let total = pro + fat + carb;
-
                 let proEnd = total===0 ? "0deg" : `${(pro/total)*360}deg`;
                 let fatEnd = total===0 ? "0deg" : `${((pro+fat)/total)*360}deg`;
 
@@ -330,7 +335,7 @@ let carbType = item["碳水类型"] ?? (carb <= 0.5 ? "无碳" : "低碳");
 
         //重置回到登录
         function restartExam(){
-            document.getElementById("resultBox").style.display="none";
+            document.getElementById("result-box").style.display="none";
             document.getElementById("loginBox").style.display="block";
             document.getElementById("userName").value="";
             userName="";
