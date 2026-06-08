@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1">
-    <title>菜品营养知识答题系统（成绩明细版）</title>
+    <title>喜太熊轻火锅菜品营养知识答题系统（首页科普版）</title>
     <style>
         * {
             margin: 0;
@@ -23,7 +23,7 @@
             border-radius: 12px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.1);
         }
-        /*登录区*/
+        /*登录区首页科普模块*/
         .login-box {
             text-align: center;
             padding: 40px 0;
@@ -31,24 +31,51 @@
         .login-box h2 {
             color: #2c3e50;
             margin-bottom: 30px;
+            font-size:clamp(26px,5vw,36px);
+        }
+        /*营养科普说明框*/
+        .nutrition-tips{
+            max-width: 700px;
+            margin:0 auto 36px;
+            padding:16px 20px;
+            background:#f0f6fc;
+            border-radius:10px;
+            text-align:left;
+        }
+        .tips-title{
+            font-size:18px;
+            color:#2c3e50;
+            margin-bottom:12px;
+            text-align:center;
+            font-weight:bold;
+        }
+        .tips-item{
+            font-size:clamp(14px,2vw,15px);
+            line-height:1.7;
+            color:#333;
+            margin:6px 0;
+        }
+        .tips-label{
+            font-weight:bold;
+            color:#29629e;
         }
         .input-name {
             width: min(320px,90%);
-            padding: 12px;
+            padding: 16px 14px;
             font-size: 16px;
             border: 1px solid #ddd;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
             outline: none;
         }
         .input-name:focus {border-color: #3498db;}
         .btn {
-            padding: 12px 32px;
+            padding: 16px 42px;
             background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 6px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 18px;
             cursor: pointer;
             transition: 0.3s;
         }
@@ -97,6 +124,9 @@
             }
             .options{
                 justify-content:center;
+            }
+            .nutrition-tips{
+                text-align:center;
             }
         }
         /* 菜品图片尺寸 */
@@ -237,9 +267,20 @@
 </head>
 <body>
     <div class="container">
-        <!--登录输入姓名-->
+        <!--登录输入姓名+新增营养科普模块-->
         <div class="login-box" id="loginBox">
-            <h2>菜品营养知识答题系统</h2>
+            <h2>喜太熊轻火锅菜品营养知识答题系统</h2>
+            <!-- 新增营养科普说明区域 -->
+            <div class="nutrition-tips">
+                <div class="tips-title">基础营养小知识</div>
+                <div class="tips-item"><span class="tips-label">蛋白质：</span>修复肌肉器官，维持人体组织生长与免疫机能。</div>
+                <div class="tips-item"><span class="tips-label">脂肪：</span>储存长效能量，保护内脏，帮助脂溶性维生素吸收。</div>
+                <div class="tips-item"><span class="tips-label">碳水化合物：</span>人体主要供能来源，分为快碳、慢碳两类。</div>
+                <div class="tips-item"><span class="tips-label">快碳：</span>吸收快，餐后30分钟快速供能，适合运动前后补充。</div>
+                <div class="tips-item"><span class="tips-label">慢碳：</span>吸收平缓，2-4小时持续释放能量，饱腹感更持久。</div>
+                <div class="tips-item"><span class="tips-label">抗氧化食材：</span>清除体内自由基，延缓细胞老化，减少氧化损伤。</div>
+                <div class="tips-item"><span class="tips-label">抗炎食材：</span>减轻身体慢性炎症，降低代谢不适与身体肿痛。</div>
+            </div>
             <input type="text" class="input-name" id="userName" placeholder="请输入答题人姓名">
             <br>
             <button class="btn" onclick="startExam()">开始随机答题</button>
@@ -407,7 +448,7 @@
             document.getElementById("finalScore").innerText = score+" 分";
         }
 
-        //重置回到登录（修复id笔误result-box → resultBox）
+        //重置回到登录
         function restartExam(){
             document.getElementById("resultBox").style.display="none";
             document.getElementById("loginBox").style.display="block";
