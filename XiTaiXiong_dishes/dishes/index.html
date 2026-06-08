@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1">
-    <title>菜品营养知识答题系统（碳水逻辑修复版）</title>
+    <title>菜品营养知识答题系统（成绩明细版）</title>
     <style>
         * {
             margin: 0;
@@ -190,6 +190,49 @@
             background:#9b59b6;
         }
         .restart-btn:hover {background:#8e44ad;}
+        /* 答题明细列表样式 */
+        .result-list-title{
+            margin:40px 0 20px;
+            font-size:20px;
+            color:#2c3e50;
+        }
+        .result-item{
+            display:flex;
+            align-items:center;
+            gap:16px;
+            border:1px solid #eee;
+            border-radius:8px;
+            padding:14px;
+            margin-bottom:12px;
+            text-align:left;
+        }
+        @media(max-width:768px){
+            .result-item{
+                flex-direction:column;
+                text-align:center;
+            }
+        }
+        .result-item-img{
+            width:100px;
+            height:auto;
+            border-radius:6px;
+            flex-shrink:0;
+        }
+        .result-item-text{
+            line-height:1.8;
+        }
+        .right-tag{
+            color:#27ae60;
+            font-weight:bold;
+        }
+        .wrong-tag{
+            color:#e74c3c;
+            font-weight:bold;
+        }
+        #resultDetail{
+            max-width:700px;
+            margin:0 auto;
+        }
     </style>
 </head>
 <body>
@@ -213,6 +256,9 @@
             <h2>答题结束！</h2>
             <p id="resultText"></p>
             <div class="score" id="finalScore"></div>
+            <!-- 答题明细容器 -->
+            <h3 class="result-list-title">本次作答菜品明细</h3>
+            <div id="resultDetail"></div>
             <button class="btn restart-btn" onclick="restartExam()">重新答题（刷新随机新题目）</button>
         </div>
     </div>
@@ -317,25 +363,53 @@
             dom.classList.add("selected");
         }
 
-        //判分提交
+        //判分提交 + 渲染菜品明细列表
         function submitExam(){
             if(userAnswers.includes(null)){
                 alert("还有题目未作答，不能提交！");
                 return;
             }
             let score=0;
+            let detailWrap = document.getElementById("resultDetail");
+            detailWrap.innerHTML = "";
             currentQuestions.forEach((item,i)=>{
-                if(item["是否抗炎抗氧化食材"] === userAnswers[i]) score+=20;
+                // 计算得分
+                let isCorrect = (item["是否抗炎抗氧化食材"] === userAnswers[i]);
+                if(isCorrect) score+=20;
+                // 获取碳水分类
+                let carb = Number(item["每100ml碳水(g)"] || 0);
+                let carbType = item["碳水类型"] ?? (carb <=0.5 ? "无碳" : carb<=5 ? "低碳" : "高碳");
+                // 文字转换布尔值
+                let userAnsText = userAnswers[i] ? "是" : "否";
+                let realAnsText = item["是否抗炎抗氧化食材"] ? "是" : "否";
+                let tagClass = isCorrect ? "right-tag" : "wrong-tag";
+                let tagText = isCorrect ? "回答正确" : "回答错误";
+
+                // 单条明细HTML
+                let itemHtml = `
+                <div class="result-item">
+                    <img class="result-item-img" src="${item.img}" alt="${item.菜品名称}">
+                    <div class="result-item-text">
+                        <div><strong>菜品名称：</strong>${item.菜品名称}</div>
+                        <div><strong>碳水类型：</strong>${carbType}</div>
+                        <div><strong>天然抗炎抗氧化食材：</strong>${realAnsText}</div>
+                        <div><strong>你的作答：</strong>${userAnsText} <span class="${tagClass}">${tagText}</span></div>
+                    </div>
+                </div>
+                `;
+                detailWrap.innerHTML += itemHtml;
             })
+
+            // 切换页面
             document.getElementById("examBox").style.display="none";
             document.getElementById("resultBox").style.display="block";
             document.getElementById("resultText").innerText = `${userName}，本次测评得分：`;
             document.getElementById("finalScore").innerText = score+" 分";
         }
 
-        //重置回到登录
+        //重置回到登录（修复id笔误result-box → resultBox）
         function restartExam(){
-            document.getElementById("result-box").style.display="none";
+            document.getElementById("resultBox").style.display="none";
             document.getElementById("loginBox").style.display="block";
             document.getElementById("userName").value="";
             userName="";
