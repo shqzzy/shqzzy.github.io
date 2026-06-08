@@ -262,7 +262,13 @@
                 let carbType = item["碳水类型"] ?? "无碳";
                 let pro = Number(item["每100ml蛋白质(g)"]);
                 let fat = Number(item["每100ml脂肪(g)"]);
-                let carb = Math.max(0,100 - pro - fat);
+                // 原来错误代码：
+// let carb = Math.max(0,100 - pro - fat);
+
+// 改为直接取库内数据：
+let carb = Number(item["每100ml碳水(g)"] || 0);
+let carbType = item["碳水类型"] ?? (carb <= 0.5 ? "无碳" : "低碳");
+
                 let total = pro + fat + carb;
 
                 let proEnd = total===0 ? "0deg" : `${(pro/total)*360}deg`;
