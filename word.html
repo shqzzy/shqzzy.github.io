@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>英文字帖生成器（Windows自带字体版）</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      display: flex;
+      height: 100vh;
+      background: #f5f7fa;
+      overflow: hidden;
+    }
+    /* 左侧预览区 */
+    .preview-wrap {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+    }
+    #canvasBox {
+      background: #fff;
+      padding: 30px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 900px;
+    }
+    canvas {
+      width: 100%;
+      display: block;
+    }
+    /* 右侧控制面板 打印隐藏 */
+    .control-panel {
+      width: 340px;
+      background: #fff;
+      padding: 20px;
+      border-left: 1px solid #e5e7eb;
+      overflow-y: auto;
+    }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .btn-export {
+      background: #f0f4ff;
+      color: #2563eb;
+    }
+    .btn-print {
+      background: #111827;
+      color: #fff;
+    }
+    textarea {
+      width: 100%;
+      height: 130px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      resize: none;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .control-item {
+      margin-bottom: 16px;
+    }
+    .control-item label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 14px;
+      color: #333;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+    .divider {
+      height: 1px;
+      background: #eee;
+      margin: 20px 0;
+    }
+    select {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    input[type="color"] {
+      width: 100%;
+      height: 34px;
+      border: none;
+      cursor: pointer;
+    }
+    /* 字体切换标签按钮 */
+    .font-tab-box {
+      display: flex;
+      gap: 0;
+      margin: 8px 0;
+    }
+    .font-tab-box button {
+      flex: 1;
+      padding:7px;
+      border:1px solid #ddd;
+      background:#fff;
+      color:#333;
+    }
+    .font-tab-box button.active {
+      background:#2563eb;
+      color:#fff;
+      border-color:#2563eb;
+    }
+    .tab-left {
+      border-radius:6px 0 0 6px;
+      border-right:none;
+    }
+    .tab-right {
+      border-radius:0 6px 6px 0;
+    }
+
+    /* ====================== 打印专用样式（核心修复） ====================== */
+    @media print {
+      /* 页面基础设置 A4纸张，清除页眉页脚 */
+      @page {
+        size: A4;
+        margin: 12mm;
+        -webkit-print-color-adjust: exact; /* 打印保留彩色描红 */
+      }
+      body {
+        background: #fff;
+        display: block;
+        overflow: visible;
+      }
+      /* 所有不需要打印的控件全部隐藏 */
+      .no-print {
+        display: none !important;
+      }
+      /* 左侧预览区铺满整张纸 */
+      .preview-wrap {
+        padding: 0;
+      }
+      #canvasBox {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      canvas {
+        width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 左侧字帖预览（打印保留） -->
+  <div class="preview-wrap">
+    <div id="canvasBox">
+      <canvas id="paperCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- 右侧设置面板 全部标记no-print，打印自动隐藏 -->
+  <div class="control-panel no-print">
+    <div class="btn-group">
+      <button class="btn-export" id="exportBtn">导出</button>
+      <button class="btn-print" id="printBtn">打印</button>
+    </div>
+    <!-- 预置示例文本，打开页面直接渲染 -->
+    <textarea id="wordInput" placeholder="输入格式：英文|中文，每行一条
+thirty|三十
+forty|四十
+fifty|五十
+sixty|六十
+seventy|七十
+eighty|八十
+ninety|九十
+one hundred|一百">thirty|三十
+forty|四十
+fifty|五十
+sixty|六十
+seventy|七十
+eighty|八十
+ninety|九十
+one hundred|一百</textarea>
+
+    <div class="switch-row">
+      <span>显示中文释义</span>
+      <input type="checkbox" id="showCn" checked>
+    </div>
+    <div class="switch-row">
+      <span>首字高亮</span>
+      <input type="checkbox" id="firstHigh">
+    </div>
+    <div class="switch-row">
+      <span>插入空行</span>
+      <input type="checkbox" id="addBlank">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-item">
+      <label>方格类型 <span>四线格</span></label>
+      <select id="gridType">
+        <option value="four">四线格</option>
+        <option value="two">双线格</option>
+      </select>
+    </div>
+    <div class="control-item">
+      <label>行高 <span id="lineHeightVal">11.4mm</span></label>
+      <input type="range" id="lineHeight" min="8" max="16" step="0.2" value="11.4">
+    </div>
+    <div class="control-item">
+      <label>行间距 <span id="gapVal">4.5mm</span></label>
+      <input type="range" id="lineGap" min="2" max="8" step="0.1" value="4.5">
+    </div>
+    <div class="control-item">
+      <label>页边距 <span>36,36,36,36</span></label>
+      <input type="range" id="margin" min="10" max="60" value="36">
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 字体选择模块（Windows自带多字体双标签） -->
+    <div class="control-item">
+      <label>字体 <span id="currentFontName">Comic Sans 圆润手写</span></label>
+      <div class="font-tab-box">
+        <button id="tabWinFont" class="tab-left active">Windows自带练字字体</button>
+        <button id="tabLocalInstallFont" class="tab-right">本机额外安装字体</button>
+      </div>
+      <!-- Windows全系统预装英文字体，无需任何字体文件 -->
+      <select id="winFontSelect">
+        <option value="Comic Sans MS">Comic Sans 圆润手写</option>
+        <option value="Lucida Calligraphy">Lucida 意大利花体</option>
+        <option value="Arial">Arial 标准无衬线</option>
+        <option value="Times New Roman">Times 经典衬线</option>
+        <option value="Courier New">Courier 等宽练字体</option>
+        <option value="Verdana">Verdana 清晰阅读体</option>
+        <option value="Georgia">Georgia 柔和衬线</option>
+        <option value="Lucida Sans Unicode">Lucida 清爽手写</option>
+        <option value="Palatino Linotype">Palatino 优雅练字</option>
+        <option value="Trebuchet MS">Trebuchet 圆润印刷</option>
+      </select>
+      <!-- 留给后期手动安装的字帖字体 -->
+      <select id="localInstallFontSelect" style="display:none;margin-top:8px;">
+        <option value="ItalianHand">意大利斜体（需手动安装）</option>
+        <option value="NanxiangStick">南翔棒棒体（需手动安装）</option>
+        <option value="ShuQiao HengShuiTi">舒窈衡水体（需手动安装）</option>
+      </select>
+    </div>
+
+    <div class="control-item">
+      <label>字体大小 <span id="fontSizeVal">85%</span></label>
+      <input type="range" id="fontScale" min="60" max="120" value="85">
+    </div>
+    <div class="control-item">
+      <label>上下偏移 <span id="offsetVal">0%</span></label>
+      <input type="range" id="vertOffset" min="-20" max="20" value="0">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-item">
+      <label>描红数量 <span id="traceNumVal">3</span></label>
+      <input type="range" id="traceCount" min="1" max="5" value="3">
+    </div>
+    <div class="control-item">
+      <label>描红颜色</label>
+      <input type="color" id="traceColor" value="#ff6666">
+    </div>
+    <div class="control-item">
+      <label>线条颜色</label>
+      <input type="color" id="lineColor" value="#94a3b8">
+    </div>
+  </div>
+
+  <script>
+    // 全局画布与配置
+    const canvas = document.getElementById('paperCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasBox = document.getElementById('canvasBox');
+    let config = {
+      words: [],
+      showCn: true,
+      firstHigh: false,
+      addBlank: false,
+      gridType: 'four',
+      lineHeight: 11.4,
+      lineGap: 4.5,
+      margin: 36,
+      font: 'Comic Sans MS', // 默认Windows自带手写体
+      fontScale: 85,
+      vertOffset: 0,
+      traceCount: 3,
+      traceColor: '#ff6666',
+      lineColor: '#94a3b8'
+    }
+
+    // 毫米转像素
+    function mm2px(mm) {
+      return mm * 3.78;
+    }
+
+    // 解析输入框文本 拆分英文|中文
+    function parseInputText() {
+      const inputEl = document.getElementById('wordInput');
+      if (!inputEl) return;
+      const text = inputEl.value.trim();
+      if (!text) {
+        config.words = [];
+        renderPaper();
+        return;
+      }
+      const lines = text.split('\n').filter(item => item.trim() !== '');
+      config.words = lines.map(line => {
+        const arr = line.split('|').map(s => s.trim());
+        return { en: arr[0] || '', cn: arr[1] || '' }
+      })
+      renderPaper();
+    }
+
+    // 绘制单行四线格
+    function drawFourLine(y, lineH, lineC) {
+      const marginPx = mm2px(config.margin);
+      const width = canvas.width - marginPx * 2;
+      const xStart = marginPx;
+      const subHeight = lineH / 4;
+      ctx.strokeStyle = lineC;
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        ctx.beginPath();
+        // 中间两条虚线
+        if (i === 1 || i === 3) ctx.setLineDash([4, 4]);
+        else ctx.setLineDash([]);
+        ctx.moveTo(xStart, y + subHeight * i);
+        ctx.lineTo(xStart + width, y + subHeight * i);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // 主渲染函数
+    function renderPaper() {
+      // 修复空白关键：同步容器宽度
+      canvas.width = canvasBox.clientWidth;
+      canvas.height = 2600;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const marginPx = mm2px(config.margin);
+      const lineHpx = mm2px(config.lineHeight);
+      const gapPx = mm2px(config.lineGap);
+      const baseFontSize = lineHpx * (config.fontScale / 100);
+      let currentY = marginPx;
+
+      // 无文字时显示提示
+      if (config.words.length === 0) {
+        ctx.fillStyle = '#888';
+        ctx.font = '16px Arial';
+        ctx.fillText('请在右侧输入英文|中文单词，每行一条', marginPx, currentY + 30);
+        return;
+      }
+
+      // 循环渲染每一行单词
+      config.words.forEach(item => {
+        drawFourLine(currentY, lineHpx, config.lineColor);
+        const textBaselineY = currentY + lineHpx / 2 + mm2px(config.vertOffset);
+        const wordStartX = marginPx + 8;
+
+        // 黑色原版单词
+        ctx.fillStyle = '#000';
+        ctx.font = `${baseFontSize}px ${config.font}`;
+        ctx.fillText(item.en, wordStartX, textBaselineY);
+        let drawX = wordStartX + ctx.measureText(item.en).width + 12;
+
+        // 红色描红单词
+        ctx.fillStyle = config.traceColor;
+        for (let i = 0; i < config.traceCount; i++) {
+          ctx.fillText(item.en, drawX, textBaselineY);
+          drawX += ctx.measureText(item.en).width + 16;
+        }
+
+        // 右侧中文释义
+        if (config.showCn && item.cn) {
+          ctx.fillStyle = '#222';
+          ctx.font = `${baseFontSize * 0.8}px Arial`;
+          const cnWidth = ctx.measureText(item.cn).width;
+          const cnX = canvas.width - marginPx - cnWidth - 10;
+          ctx.fillText(item.cn, cnX, textBaselineY);
+        }
+
+        // 下移下一行
+        currentY += lineHpx + gapPx;
+        if (config.addBlank) currentY += lineHpx / 2;
+      })
+    }
+
+    // 绑定所有控件事件
+    function bindAllControl() {
+      // 文本输入实时更新
+      document.getElementById('wordInput').addEventListener('input', parseInputText);
+
+      // 开关
+      document.getElementById('showCn').onchange = e => {
+        config.showCn = e.target.checked;
+        renderPaper();
+      }
+      document.getElementById('firstHigh').onchange = e => {
+        config.firstHigh = e.target.checked;
+        renderPaper();
+      }
+      document.getElementById('addBlank').onchange = e => {
+        config.addBlank = e.target.checked;
+        renderPaper();
+      }
+
+      // 滑块通用绑定
+      function bindSlider(sliderId, cfgKey, valSpanId, unit = '') {
+        const slider = document.getElementById(sliderId);
+        const valSpan = document.getElementById(valSpanId);
+        slider.oninput = () => {
+          config[cfgKey] = Number(slider.value);
+          if (valSpan) valSpan.innerText = slider.value + unit;
+          renderPaper();
+        }
+      }
+      bindSlider('lineHeight', 'lineHeight', 'lineHeightVal', 'mm');
+      bindSlider('lineGap', 'lineGap', 'gapVal', 'mm');
+      bindSlider('fontScale', 'fontScale', 'fontSizeVal', '%');
+      bindSlider('vertOffset', 'vertOffset', 'offsetVal', '%');
+      bindSlider('traceCount', 'traceCount', 'traceNumVal', '');
+
+      // 方格类型下拉
+      document.getElementById('gridType').onchange = e => {
+        config.gridType = e.target.value;
+        renderPaper();
+      }
+
+      // 颜色选择器
+      document.getElementById('traceColor').oninput = e => {
+        config.traceColor = e.target.value;
+        renderPaper();
+      }
+      document.getElementById('lineColor').oninput = e => {
+        config.lineColor = e.target.value;
+        renderPaper();
+      }
+
+      // 导出图片
+      document.getElementById('exportBtn').onclick = () => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = '英文字帖带释义.png';
+        a.click();
+      }
+      // 打印按钮
+      document.getElementById('printBtn').onclick = () => window.print();
+
+      // ========== 字体双标签切换逻辑 ==========
+      const tabWin = document.getElementById('tabWinFont');
+      const tabLocalInstall = document.getElementById('tabLocalInstallFont');
+      const selWin = document.getElementById('winFontSelect');
+      const selLocalInstall = document.getElementById('localInstallFontSelect');
+      const fontShowName = document.getElementById('currentFontName');
+
+      // 切换Windows自带字体
+      tabWin.onclick = () => {
+        tabWin.classList.add('active');
+        tabLocalInstall.classList.remove('active');
+        selWin.style.display = 'block';
+        selLocalInstall.style.display = 'none';
+        config.font = selWin.value;
+        fontShowName.innerText = selWin.options[selWin.selectedIndex].text;
+        renderPaper();
+      }
+      // 切换本机手动安装字体
+      tabLocalInstall.onclick = () => {
+        tabLocalInstall.classList.add('active');
+        tabWin.classList.remove('active');
+        selLocalInstall.style.display = 'block';
+        selWin.style.display = 'none';
+        config.font = selLocalInstall.value;
+        fontShowName.innerText = selLocalInstall.options[selLocalInstall.selectedIndex].text;
+        renderPaper();
+      }
+      // Windows字体下拉变更
+      selWin.onchange = e => {
+        config.font = e.target.value;
+        fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
+        renderPaper();
+      }
+      // 手动安装字体下拉变更
+      selLocalInstall.onchange = e => {
+        config.font = e.target.value;
+        fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
+        renderPaper();
+      }
+    }
+
+    // 页面加载完成后初始化
+    window.addEventListener('load', () => {
+      bindAllControl();
+      // 延迟执行，等待DOM容器完全渲染，解决空白核心问题
+      setTimeout(() => {
+        parseInputText();
+      }, 100);
+    });
+    // 窗口大小变化重绘
+    window.addEventListener('resize', () => {
+      setTimeout(renderPaper, 50);
+    })
+  </script>
+</body>
+</html>
