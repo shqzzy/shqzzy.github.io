@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>英文字帖生成器（Windows自带字体版）</title>
+  <title>A4分页自适应英文字帖生成器</title>
   <style>
     * {
       margin: 0;
@@ -16,7 +16,7 @@
       background: #f5f7fa;
       overflow: hidden;
     }
-    /* 左侧预览区 */
+    /* 左侧预览区 加宽最大宽度 */
     .preview-wrap {
       flex: 1;
       padding: 20px;
@@ -28,7 +28,7 @@
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
       border-radius: 8px;
       width: 100%;
-      max-width: 900px;
+      max-width: 1100px; /* 加宽，解决宽度不足 */
     }
     canvas {
       width: 100%;
@@ -139,24 +139,21 @@
       border-radius:0 6px 6px 0;
     }
 
-    /* ====================== 打印专用样式（核心修复） ====================== */
+    /* ====================== 打印专用样式 ====================== */
     @media print {
-      /* 页面基础设置 A4纸张，清除页眉页脚 */
       @page {
         size: A4;
         margin: 12mm;
-        -webkit-print-color-adjust: exact; /* 打印保留彩色描红 */
+        -webkit-print-color-adjust: exact;
       }
       body {
         background: #fff;
         display: block;
         overflow: visible;
       }
-      /* 所有不需要打印的控件全部隐藏 */
       .no-print {
         display: none !important;
       }
-      /* 左侧预览区铺满整张纸 */
       .preview-wrap {
         padding: 0;
       }
@@ -185,7 +182,7 @@
       <button class="btn-export" id="exportBtn">导出</button>
       <button class="btn-print" id="printBtn">打印</button>
     </div>
-    <!-- 预置示例文本，打开页面直接渲染 -->
+    <!-- 预置示例文本 -->
     <textarea id="wordInput" placeholder="输入格式：英文|中文，每行一条
 thirty|三十
 forty|四十
@@ -213,7 +210,7 @@ one hundred|一百</textarea>
     </div>
     <div class="switch-row">
       <span>插入空行</span>
-      <input type="checkbox" id="addBlank">
+      <input type="checkbox" id="addBlank" checked>
     </div>
 
     <div class="divider"></div>
@@ -247,7 +244,6 @@ one hundred|一百</textarea>
         <button id="tabWinFont" class="tab-left active">Windows自带练字字体</button>
         <button id="tabLocalInstallFont" class="tab-right">本机额外安装字体</button>
       </div>
-      <!-- Windows全系统预装英文字体，无需任何字体文件 -->
       <select id="winFontSelect">
         <option value="Comic Sans MS">Comic Sans 圆润手写</option>
         <option value="Lucida Calligraphy">Lucida 意大利花体</option>
@@ -260,7 +256,6 @@ one hundred|一百</textarea>
         <option value="Palatino Linotype">Palatino 优雅练字</option>
         <option value="Trebuchet MS">Trebuchet 圆润印刷</option>
       </select>
-      <!-- 留给后期手动安装的字帖字体 -->
       <select id="localInstallFontSelect" style="display:none;margin-top:8px;">
         <option value="ItalianHand">意大利斜体（需手动安装）</option>
         <option value="NanxiangStick">南翔棒棒体（需手动安装）</option>
@@ -280,8 +275,8 @@ one hundred|一百</textarea>
     <div class="divider"></div>
 
     <div class="control-item">
-      <label>描红数量 <span id="traceNumVal">3</span></label>
-      <input type="range" id="traceCount" min="1" max="5" value="3">
+      <label>描红数量 <span id="traceNumVal">1</span></label>
+      <input type="range" id="traceCount" min="1" max="5" value="1">
     </div>
     <div class="control-item">
       <label>描红颜色</label>
@@ -290,6 +285,24 @@ one hundred|一百</textarea>
     <div class="control-item">
       <label>线条颜色</label>
       <input type="color" id="lineColor" value="#94a3b8">
+    </div>
+
+    <div class="divider"></div>
+    <!-- 画布尺寸分页选择（新增A4单/双/三页） -->
+    <div class="control-item">
+      <label>画布尺寸模式 <span id="sizeModeText">自动适配内容</span></label>
+      <select id="canvasSizeMode">
+        <option value="auto">自动适配内容</option>
+        <option value="a4-1">A4 单页(297mm)</option>
+        <option value="a4-2">A4 双页(594mm)</option>
+        <option value="a4-3">A4 三页(891mm)</option>
+      </select>
+    </div>
+    <!-- 最小高度滑块（自动模式生效） -->
+    <div class="control-item">
+      <label>画布最小高度 <span id="canvasHeightVal">260mm</span></label>
+      <input type="range" id="canvasHeightSlider" min="100" max="800" value="260" step="10">
+      <div style="margin-top:6px;font-size:12px;color:#777;">仅「自动适配」模式生效，分页模式锁定固定高度</div>
     </div>
   </div>
 
@@ -307,12 +320,15 @@ one hundred|一百</textarea>
       lineHeight: 11.4,
       lineGap: 4.5,
       margin: 36,
-      font: 'Comic Sans MS', // 默认Windows自带手写体
+      font: 'Comic Sans MS',
       fontScale: 85,
       vertOffset: 0,
-      traceCount: 3,
+      traceCount: 1,
       traceColor: '#ff6666',
-      lineColor: '#94a3b8'
+      lineColor: '#94a3b8',
+      extraBottomSpace: 80,    // 底部留白
+      minCanvasMM: 260,        // 自动模式最小高度
+      sizeMode: 'auto'         // 尺寸模式 auto/a4-1/a4-2/a4-3
     }
 
     // 毫米转像素
@@ -348,7 +364,6 @@ one hundred|一百</textarea>
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         ctx.beginPath();
-        // 中间两条虚线
         if (i === 1 || i === 3) ctx.setLineDash([4, 4]);
         else ctx.setLineDash([]);
         ctx.moveTo(xStart, y + subHeight * i);
@@ -358,20 +373,56 @@ one hundred|一百</textarea>
       ctx.setLineDash([]);
     }
 
-    // 主渲染函数
+    // 主渲染函数（自动计算画布高度+分页固定尺寸）
     function renderPaper() {
-      // 修复空白关键：同步容器宽度
-      canvas.width = canvasBox.clientWidth;
-      canvas.height = 2600;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       const marginPx = mm2px(config.margin);
       const lineHpx = mm2px(config.lineHeight);
       const gapPx = mm2px(config.lineGap);
+      let fixedHeightMM = 0;
+
+      // 根据尺寸模式锁定高度
+      switch(config.sizeMode){
+        case 'a4-1':
+          fixedHeightMM = 297;
+          break;
+        case 'a4-2':
+          fixedHeightMM = 594;
+          break;
+        case 'a4-3':
+          fixedHeightMM = 891;
+          break;
+        default:
+          fixedHeightMM = 0;
+      }
+
+      // 1. 计算内容实际占用高度
+      let contentTotalY = marginPx;
+      config.words.forEach(() => {
+        contentTotalY += lineHpx + gapPx;
+        if (config.addBlank) contentTotalY += lineHpx / 2;
+      })
+      contentTotalY += marginPx + mm2px(config.extraBottomSpace);
+
+      // 2. 判断最终画布高度
+      let realCanvasHeight;
+      if(fixedHeightMM > 0){
+        // 分页模式：强制固定A4高度
+        realCanvasHeight = mm2px(fixedHeightMM);
+      }else{
+        // 自动模式：取内容高度 / 最小限制高度 二者更大值
+        const minHeightPx = mm2px(config.minCanvasMM);
+        realCanvasHeight = Math.max(contentTotalY, minHeightPx);
+      }
+
+      // 3. 更新画布尺寸
+      canvas.width = canvasBox.clientWidth;
+      canvas.height = realCanvasHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       const baseFontSize = lineHpx * (config.fontScale / 100);
       let currentY = marginPx;
 
-      // 无文字时显示提示
+      // 无文字提示
       if (config.words.length === 0) {
         ctx.fillStyle = '#888';
         ctx.font = '16px Arial';
@@ -379,19 +430,19 @@ one hundred|一百</textarea>
         return;
       }
 
-      // 循环渲染每一行单词
+      // 逐行绘制单词
       config.words.forEach(item => {
         drawFourLine(currentY, lineHpx, config.lineColor);
         const textBaselineY = currentY + lineHpx / 2 + mm2px(config.vertOffset);
         const wordStartX = marginPx + 8;
 
-        // 黑色原版单词
+        // 黑色原词
         ctx.fillStyle = '#000';
         ctx.font = `${baseFontSize}px ${config.font}`;
         ctx.fillText(item.en, wordStartX, textBaselineY);
         let drawX = wordStartX + ctx.measureText(item.en).width + 12;
 
-        // 红色描红单词
+        // 红色描红
         ctx.fillStyle = config.traceColor;
         for (let i = 0; i < config.traceCount; i++) {
           ctx.fillText(item.en, drawX, textBaselineY);
@@ -407,7 +458,6 @@ one hundred|一百</textarea>
           ctx.fillText(item.cn, cnX, textBaselineY);
         }
 
-        // 下移下一行
         currentY += lineHpx + gapPx;
         if (config.addBlank) currentY += lineHpx / 2;
       })
@@ -432,7 +482,7 @@ one hundred|一百</textarea>
         renderPaper();
       }
 
-      // 滑块通用绑定
+      // 通用滑块绑定函数
       function bindSlider(sliderId, cfgKey, valSpanId, unit = '') {
         const slider = document.getElementById(sliderId);
         const valSpan = document.getElementById(valSpanId);
@@ -448,7 +498,25 @@ one hundred|一百</textarea>
       bindSlider('vertOffset', 'vertOffset', 'offsetVal', '%');
       bindSlider('traceCount', 'traceCount', 'traceNumVal', '');
 
-      // 方格类型下拉
+      // 画布最小高度滑块（仅自动模式生效）
+      const canvasSlider = document.getElementById('canvasHeightSlider');
+      const canvasVal = document.getElementById('canvasHeightVal');
+      canvasSlider.oninput = () => {
+        config.minCanvasMM = Number(canvasSlider.value);
+        canvasVal.innerText = canvasSlider.value + 'mm';
+        renderPaper();
+      }
+
+      // 画布尺寸模式选择（A4单/双/三页）
+      const sizeModeSel = document.getElementById('canvasSizeMode');
+      const sizeModeText = document.getElementById('sizeModeText');
+      sizeModeSel.onchange = e => {
+        config.sizeMode = e.target.value;
+        sizeModeText.innerText = e.target.options[e.target.selectedIndex].text;
+        renderPaper();
+      }
+
+      // 方格下拉
       document.getElementById('gridType').onchange = e => {
         config.gridType = e.target.value;
         renderPaper();
@@ -464,14 +532,13 @@ one hundred|一百</textarea>
         renderPaper();
       }
 
-      // 导出图片
+      // 导出、打印按钮
       document.getElementById('exportBtn').onclick = () => {
         const a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
         a.download = '英文字帖带释义.png';
         a.click();
       }
-      // 打印按钮
       document.getElementById('printBtn').onclick = () => window.print();
 
       // ========== 字体双标签切换逻辑 ==========
@@ -481,7 +548,6 @@ one hundred|一百</textarea>
       const selLocalInstall = document.getElementById('localInstallFontSelect');
       const fontShowName = document.getElementById('currentFontName');
 
-      // 切换Windows自带字体
       tabWin.onclick = () => {
         tabWin.classList.add('active');
         tabLocalInstall.classList.remove('active');
@@ -491,7 +557,6 @@ one hundred|一百</textarea>
         fontShowName.innerText = selWin.options[selWin.selectedIndex].text;
         renderPaper();
       }
-      // 切换本机手动安装字体
       tabLocalInstall.onclick = () => {
         tabLocalInstall.classList.add('active');
         tabWin.classList.remove('active');
@@ -501,13 +566,11 @@ one hundred|一百</textarea>
         fontShowName.innerText = selLocalInstall.options[selLocalInstall.selectedIndex].text;
         renderPaper();
       }
-      // Windows字体下拉变更
       selWin.onchange = e => {
         config.font = e.target.value;
         fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
         renderPaper();
       }
-      // 手动安装字体下拉变更
       selLocalInstall.onchange = e => {
         config.font = e.target.value;
         fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
@@ -515,15 +578,11 @@ one hundred|一百</textarea>
       }
     }
 
-    // 页面加载完成后初始化
+    // 页面加载初始化
     window.addEventListener('load', () => {
       bindAllControl();
-      // 延迟执行，等待DOM容器完全渲染，解决空白核心问题
-      setTimeout(() => {
-        parseInputText();
-      }, 100);
+      setTimeout(parseInputText, 100);
     });
-    // 窗口大小变化重绘
     window.addEventListener('resize', () => {
       setTimeout(renderPaper, 50);
     })
