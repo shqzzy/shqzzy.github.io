@@ -1,36 +1,48 @@
-<h2>Privacy Policy for English Word Dictionary & Etymology Lookup</h2>
+<h2>Privacy Policy for English Word Dictionary &amp; Etymology Lookup</h2>
 
-<h4>Last Updated: June 2026</h4>
+<h4>Last Updated: September 2026 (v2.0)</h4>
 <div>
 <p>
 
-1. Introduction <br/>
-This Privacy Policy outlines how our Chrome Extension, "English Word Dictionary & Etymology Lookup" (the "Extension"), handles user data. We are committed to maintaining your privacy and ensuring a secure browsing experience.<br/>
-<br/>
+1. Introduction<br/>
+This Privacy Policy outlines how our Chrome Extension, "English Word Dictionary &amp; Etymology Lookup" (the "Extension"), handles user data. We are committed to maintaining your privacy and ensuring a secure browsing experience.
+<br/><br/>
 
 2. Data Collection and Usage<br/>
-No Personal Data Collection: The Extension does not collect, store, or transmit any personally identifiable information (such as your name, email address, IP address, or location).
+No Personal Data Collection: The Extension does not collect, store, or transmit any personally identifiable information (such as your name, email address, IP address, or location). We operate no backend server and keep no access logs.
 <br/>
-Core Functionality Data Handling: When you select or look up an English word, the extension temporarily transfers only the queried word to our database/API to retrieve its definition and etymology history. This text data is processed in real-time and is never stored, tracked, or associated with your identity on a remote server.
+Core Functionality Data Handling: When you select or look up an English word, the extension transmits only the queried word to third-party public dictionary and etymology services listed in Section 3, in order to retrieve definitions, pronunciations and etymology. This text data is processed in real-time and is never stored, tracked, or associated with your identity on a remote server.
 <br/>
 Local Storage: Any features related to saving words or creating custom vocabulary lists operate entirely locally on your device using the browser's native storage API (chrome.storage). This data never leaves your computer unless you explicitly choose to download/export it via the Extension's built-in export tool.
+<br/><br/>
+
+3. Third-Party Services<br/>
+To provide definitions, audio pronunciation and etymology, the Extension queries the following public services. Only the word you looked up is sent ！ never browsing history, page content, or any identifier:
 <br/>
-3. Data Distribution and Third Parties
-We do not sell, trade, rent, or transfer any user data to third parties. All operational processes are strictly aligned with the single purpose of providing vocabulary definition and etymology utilities.
+&bull; FreeDictionaryAPI.com and api.dictionaryapi.dev ！ word definitions (data sourced from Wiktionary, CC BY-SA 4.0)<br/>
+&bull; en.wiktionary.org ！ backup definitions, etymology text and crowd-sourced pronunciation audio<br/>
+&bull; dict.youdao.com and ssl.gstatic.com ！ human-voice pronunciation audio files<br/>
+&bull; www.etymonline.com ！ etymology entries<br/>
 <br/>
+Audio files are temporarily cached in memory during your session to speed up repeated playback, and are discarded when the Extension is closed.
+<br/>
+We do not sell, trade, rent, or transfer any user data to third parties.
+<br/><br/>
+
 4. Permissions Justification<br/>
 To fulfill its purpose, the Extension requests the following permissions under strict user-initiated conditions:
-
-activeTab & scripting: Used solely to detect a highlighted word and render the lookup results panel directly on your active page when you request it.
 <br/>
+activeTab &amp; scripting: Used solely to detect a highlighted word and render the lookup results panel directly on your active page when you request it.<br/>
 contextMenus: Used to provide a seamless entry point via the right-click menu.<br/>
-
-storage & downloads: Used to locally save your bookmarked words and allow you to safely download/export your vocabulary list.<br/>
+storage &amp; downloads: Used to locally save your bookmarked words and allow you to safely download/export your vocabulary list.<br/>
+tts: Used only as a fallback when no human-voice recording is available for a word. Speech is generated locally by Chrome's built-in speech engine; the text is never uploaded.<br/>
+Host permissions: Limited to the dictionary, pronunciation and etymology domains listed in Section 3.<br/><br/>
 
 5. Changes to This Policy<br/>
-We may update this Privacy Policy from time to time. Any updates will be reflected on this page.<br/>
+We may update this Privacy Policy from time to time. Any updates will be reflected on this page.
+<br/><br/>
 
-6. Contact <br/>
+6. Contact<br/>
 If you have any questions regarding this privacy policy, please contact the developer via our Chrome Web Store support channels.
 </p>
 
