@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Stock DCF Lookup",
+  "version": "1.0.0",
+  "description": "Look up stock DCF intrinsic value, 18-month & 5-year target price, real-time price and portfolio level from Supabase.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Stock DCF Lookup"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

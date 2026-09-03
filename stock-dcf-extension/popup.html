@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock DCF Lookup</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Stock DCF Lookup</h1>
+    <span id="conn-dot" class="conn-dot" title="Data source status"></span>
+  </header>
+
+  <div class="search-box">
+    <input id="search-input" type="text"
+           placeholder="Ticker or company, e.g. CMI / Cummins"
+           autocomplete="off" spellcheck="false" />
+    <button id="clear-btn" class="icon-btn" type="button" title="Clear" hidden>&times;</button>
+    <button id="search-btn" type="button">Search</button>
+  </div>
+
+  <div id="status" class="status" hidden></div>
+
+  <main id="content">
+    <!-- Empty state -->
+    <section id="empty" class="empty">
+      <div class="empty-ico">⌕</div>
+      <p>Search by ticker or company name</p>
+      <p class="empty-sub">Fuzzy match — auto-search after 3 characters</p>
+    </section>
+
+    <!-- Landing ranking: 18M CAGR Top 10 -->
+    <section id="ranking" class="ranking" hidden>
+      <div class="rank-head">
+        <div class="rank-title">
+          <span class="rank-name">18M Target CAGR · Top 10</span>
+          <span class="rank-sub" id="rank-sub"></span>
+        </div>
+        <button id="rank-refresh" class="icon-btn" type="button" title="Refresh ranking">↻</button>
+      </div>
+
+      <div id="rank-loading" class="rank-loading" hidden>Loading full dataset…</div>
+      <div id="rank-error" class="rank-error" hidden></div>
+
+      <div id="rank-wrap" class="table-wrap" hidden>
+        <table class="rank-table">
+          <thead>
+            <tr>
+              <th class="col-idx">#</th>
+              <th class="col-tk">Ticker / Company</th>
+              <th class="col-cagr num">18M<br>CAGR</th>
+              <th class="num">5Y<br>CAGR</th>
+              <th class="num">Debt</th>
+              <th class="num">Net<br>Cash</th>
+              <th class="num">DCF</th>
+              <th class="col-safe" title="Value Line Safety™ rank 1–5, where 1 = safest">Safe</th>
+              <th class="col-score num" title="Expense Health Score on a 0–10 scale">Hlth</th>
+            </tr>
+          </thead>
+          <tbody id="rank-body"></tbody>
+        </table>
+      </div>
+
+      <div class="rank-foot">Tap a row for details · Debt / Net Cash in USD millions</div>
+    </section>
+
+    <!-- Single stock detail -->
+    <section id="result" class="result" hidden>
+      <div class="stock-head">
+        <div class="head-left">
+          <span id="ticker" class="ticker"></span>
+          <span id="company" class="company"></span>
+        </div>
+        <div class="head-right">
+          <span id="portfolio-badge" class="badge"></span>
+          <span id="portfolio-note" class="head-note"></span>
+        </div>
+      </div>
+
+      <!-- Price hero -->
+      <div class="price-hero">
+        <div class="price-block">
+          <div class="label">Price</div>
+          <div class="value" id="realtime-price">--</div>
+        </div>
+        <div class="price-block">
+          <div class="label">DCF Value</div>
+          <div class="value accent" id="dcf-price">--</div>
+        </div>
+        <div class="price-block">
+          <div class="label">vs DCF</div>
+          <div class="value" id="upside">--</div>
+        </div>
+      </div>
+
+      <!-- Price targets -->
+      <div class="grid grid-2">
+        <div class="cell">
+          <div class="label">18M Target</div>
+          <div class="value" id="target-18m">--</div>
+          <div class="sub" id="cagr-18m"></div>
+        </div>
+        <div class="cell">
+          <div class="label">5Y Target</div>
+          <div class="value" id="target-5y">--</div>
+          <div class="sub" id="cagr-5y"></div>
+        </div>
+      </div>
+
+      <!-- Valuation -->
+      <div class="panel">
+        <div class="panel-title">Valuation<span class="unit">P/E &amp; Yield</span></div>
+        <div class="grid grid-3">
+          <div class="cell">
+            <div class="label">Current P/E</div>
+            <div class="value" id="trailing-pe">--</div>
+          </div>
+          <div class="cell">
+            <div class="label">Median P/E</div>
+            <div class="value" id="median-pe">--</div>
+          </div>
+          <div class="cell">
+            <div class="label">Div Yield</div>
+            <div class="value" id="dividends-pct">--</div>
+          </div>
+        </div>
+        <div class="pe-bar" id="pe-bar" hidden>
+          <div class="pe-track">
+            <div class="pe-fill" id="pe-fill"></div>
+            <div class="pe-marker" id="pe-marker"></div>
+          </div>
+          <div class="pe-legend">
+            <span>Current vs median P/E</span>
+            <span id="pe-gap" class="pe-gap"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financials -->
+      <div class="panel">
+        <div class="panel-title">Financials<span class="unit">USD millions</span></div>
+        <div class="grid grid-2">
+          <div class="cell">
+            <div class="label">Total Debt</div>
+            <div class="value" id="total-debt">--</div>
+          </div>
+          <div class="cell">
+            <div class="label">Net Cash</div>
+            <div class="value" id="net-cash">--</div>
+          </div>
+          <div class="cell">
+            <div class="label">Net Profit</div>
+            <div class="value" id="net-profit">--</div>
+          </div>
+          <div class="cell">
+            <div class="label">Cash Assets</div>
+            <div class="value" id="cash-assets">--</div>
+          </div>
+          <div class="cell cell-wide">
+            <div class="label">Free Cash Flow</div>
+            <div class="value" id="fcf">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expense health -->
+      <div class="panel">
+        <div class="panel-title">
+          <span>Expense Health Score</span>
+          <span class="unit">0–10 scale · higher is better</span>
+        </div>
+        <div class="score-row">
+          <div class="score-track"><div class="score-fill" id="score-fill"></div></div>
+          <div class="score-num" id="expense-health-score">--</div>
+        </div>
+        <div class="score-note" id="score-note"></div>
+      </div>
+
+      <!-- Metric definitions (collapsible) -->
+      <details class="help" id="help">
+        <summary>Metric definitions</summary>
+        <div class="help-body">
+          <div class="help-item">
+            <div class="help-name">Value Line Safety™<span class="help-tag">Rank 1–5</span></div>
+            <p>Value Line's financial strength ranking on a 5-point scale. <b>Lower is safer</b>: 1 = safest, 5 = riskiest. It blends balance-sheet quality, earnings stability and debt-service capability.</p>
+            <ul>
+              <li><b class="s1">1</b> Safest — exceptionally strong finances</li>
+              <li><b class="s2">2</b> High — solid finances, wide margin of safety</li>
+              <li><b class="s3">3</b> Moderate — average, monitor cash flow</li>
+              <li><b class="s4">4</b> Low — weaker safety, higher volatility</li>
+              <li><b class="s5">5</b> Riskiest — often high leverage or unstable earnings</li>
+            </ul>
+          </div>
+          <div class="help-item">
+            <div class="help-name">Expense Health Score<span class="help-tag">0–10</span></div>
+            <p>A composite read on cost structure — expense-ratio level and trend, and whether expense growth tracks revenue growth. <b>Scored out of 10, higher is healthier.</b> Note this is a 10-point scale, not a percentage.</p>
+            <ul>
+              <li><b class="good">8–10</b> Excellent — tight cost control</li>
+              <li><b class="mid">6–7</b> Good — broadly healthy, room to improve</li>
+              <li><b class="mid">4–5</b> Fair — moderate expense pressure</li>
+              <li><b class="bad">0–3</b> Weak — heavy cost burden</li>
+            </ul>
+          </div>
+          <div class="help-item">
+            <div class="help-name">P/E comparison bar</div>
+            <p>The grey tick marks the median P/E; the coloured bar is the current P/E. Above median = <b class="neg">premium (expensive)</b>, below median = <b class="pos">discount (cheap)</b>.</p>
+          </div>
+        </div>
+      </details>
+
+      <div class="foot">Updated: <span id="update-time">--</span></div>
+    </section>
+
+    <!-- Multiple matches -->
+    <section id="list" class="list" hidden>
+      <div class="list-head">
+        <span>Matches</span>
+        <span id="list-count" class="list-count"></span>
+      </div>
+      <div id="list-body"></div>
+      <div class="list-tip">↑ ↓ to navigate · Enter to open</div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

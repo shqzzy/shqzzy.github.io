@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Stock DCF Lookup</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a;
+    background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #16181d; }
+    h1, h2 { color: #fff; }
+    .meta { color: #999; }
+    hr { border-color: #333; }
+    table th, table td { border-color: #333; }
+    table th { background: #1e2128; }
+    code { background: #23262e; }
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 18px; margin: 36px 0 10px; }
+  p, li { margin: 0 0 12px; }
+  ul { padding-left: 22px; }
+  .meta { color: #666; font-size: 14px; margin: 0 0 32px; }
+  hr { border: 0; border-top: 1px solid #e5e5e5; margin: 32px 0; }
+  code {
+    background: #f2f3f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 15px; }
+  th, td { border: 1px solid #e5e5e5; padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: #f7f8fa; font-weight: 600; }
+  .box {
+    background: #f0f7ff;
+    border-left: 3px solid #3b74d8;
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    margin: 20px 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .box { background: #16233a; border-left-color: #5b8def; }
+  }
+  .box p:last-child { margin-bottom: 0; }
+  a { color: #2b6cd4; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="meta">Stock DCF Lookup &middot; Last updated: September 3, 2026</p>
+
+<div class="box">
+  <p><strong>In short:</strong> Stock DCF Lookup has no accounts, no login, no tracking, no analytics and no advertising. It does not read, monitor or modify the web pages you visit. The only data that ever leaves your browser is the ticker or company name you type into the search box, which is sent to the developer's own database purely to run the lookup. It is never stored by the extension, never linked to you, and never sold or shared with anyone.</p>
+</div>
+
+<h2>What the extension does</h2>
+<p>Stock DCF Lookup is a browser toolbar popup that displays discounted-cash-flow valuation figures for individual stocks. You type a ticker symbol or company name, and the extension shows the current price, DCF fair value, 18-month and 5-year price targets with the implied compound annual growth rate, current versus median P/E, dividend yield, total debt, net cash, net profit, cash, free cash flow, Value Line Safety&trade; rank and expense health score. When opened, it also shows a leaderboard of the ten stocks with the highest 18-month target CAGR.</p>
+
+<h2>Information we collect</h2>
+<p>The extension collects no personal information. There is no sign-up, no account, no email address and no user profile of any kind.</p>
+
+<h3>Search keyword (the only data transmitted)</h3>
+<p>When you type into the search box, the text you enter is sent to the developer's own Supabase project as a query parameter on a read-only <code>GET</code> request, for example:</p>
+<p><code>https://&lt;project&gt;.supabase.co/rest/v1/stocks?or=(ticker.ilike.*aapl*,company_name.ilike.*aapl*)&amp;select=...</code></p>
+<p>This is necessary because the lookup is a server-side database query. Specifically:</p>
+<ul>
+  <li>The keyword is used <strong>only</strong> to return matching rows from the database.</li>
+  <li>It is <strong>not</strong> stored by the extension. The extension saves nothing to disk — its only caching is a short-lived in-memory cache that is discarded the moment the popup closes.</li>
+  <li>It is <strong>not</strong> linked to any identifier, account, cookie, device ID or IP-based profile. None of these exist in the extension.</li>
+  <li>It is <strong>not</strong> used to build a profile of you, and is not combined with any other data.</li>
+</ul>
+
+<h3>What is not collected</h3>
+<table>
+  <tr><th>Category</th><th>Our position</th></tr>
+  <tr><td>Name, address, email, phone number or any other identifier</td><td>Not collected</td></tr>
+  <tr><td>Health or medical information</td><td>Not collected</td></tr>
+  <tr><td>Financial or payment information</td><td>Not collected. We never ask for or receive payment details; the extension has no purchase flow.</td></tr>
+  <tr><td>Passwords, credentials, cookies or authentication tokens</td><td>Not collected</td></tr>
+  <tr><td>Personal communications (email, SMS, chat)</td><td>Not collected</td></tr>
+  <tr><td>Location</td><td>Not collected</td></tr>
+  <tr><td>Browsing history or the URLs you visit</td><td>Not collected. The extension cannot see your browsing history and never requests permission to.</td></tr>
+  <tr><td>Website content</td><td>Not collected. The extension has no content script and never reads or modifies the pages you visit.</td></tr>
+  <tr><td>Usage analytics, telemetry, crash reports or advertising IDs</td><td>Not collected. No analytics or advertising SDK of any kind is bundled.</td></tr>
+</table>
+
+<h2>How the data is handled</h2>
+<p>The request is a read-only <code>GET</code> against the developer's own database. It carries the public anonymous ("anon") key that is routinely exposed in client-side applications and is protected by row-level security configured to allow read-only access. The extension never writes, updates or deletes any record.</p>
+<p>Because the request reaches a server, the developer's hosting provider may record standard technical information such as the requesting IP address, timestamp and URL in routine server logs. These logs are not used to identify you, are not combined with any other data, and are not shared.</p>
+
+<h2>Third parties</h2>
+<p>We do not sell, rent, trade or transfer your data to third parties. We do not use your data for advertising, for creditworthiness or lending decisions, or for any purpose unrelated to showing you the valuation figures you searched for. No advertising network, analytics provider or data broker is involved at any point.</p>
+
+<h2>Data storage and retention</h2>
+<p>The extension stores nothing. It does not use <code>chrome.storage</code>, <code>localStorage</code>, cookies, IndexedDB or any other persistence mechanism. Search results are held in memory for at most five minutes while the popup is open so that repeated lookups do not re-query the server, and are discarded entirely when the popup closes.</p>
+
+<h2>Permissions</h2>
+<p>The extension requests access to exactly one host — the developer's own database — and no other Chrome API. It does not request access to your tabs, browsing history, cookies, downloads or clipboard, and does not inject code into any web page.</p>
+
+<h2>Children</h2>
+<p>The extension is not directed at children under 13 and does not knowingly collect information from them.</p>
+
+<h2>Your choices</h2>
+<p>You can stop all data transmission simply by closing the popup or uninstalling the extension. There is no account to delete and no stored data to erase, because none is kept.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the updated version will be posted at this URL with a revised "Last updated" date.</p>
+
+<h2>Contact</h2>
+<p>If you have any question about this policy or about how the extension handles data, please contact the developer at <a href="mailto:YOUR-EMAIL@example.com">YOUR-EMAIL@example.com</a>.</p>
+
+<hr>
+<p class="meta">Stock DCF Lookup &middot; Not affiliated with, endorsed by or sponsored by Value Line Publishing, LLC. Value Line&trade; and Value Line Safety&trade; are trademarks of their respective owners.</p>
+
+</body>
+</html>
