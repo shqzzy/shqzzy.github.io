@@ -2,203 +2,104 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>A4分页自适应英文字帖生成器</title>
+  <title>A4分页自适应英文字帖生成器（修复版）</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, sans-serif;
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { display: flex; height: 100vh; background: #f5f7fa; overflow: hidden; }
+
+    /* 左侧预览区 */
+    .preview-wrap { flex: 1; padding: 20px; overflow: auto; }
+    .page-info {
+      max-width: 900px; margin: 0 auto 12px; padding: 8px 12px;
+      background: #eef2ff; color: #3730a3; border-radius: 6px;
+      font-size: 13px; line-height: 1.6;
     }
-    body {
-      display: flex;
-      height: 100vh;
-      background: #f5f7fa;
-      overflow: hidden;
-    }
-    /* 左侧预览区 加宽最大宽度 */
-    .preview-wrap {
-      flex: 1;
-      padding: 20px;
-      overflow: auto;
-    }
+    .page-info b { color: #1e3a8a; }
+    .page-info .warn { color: #b45309; }
     #canvasBox {
-      background: #fff;
-      padding: 30px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      border-radius: 8px;
-      width: 100%;
-      max-width: 1100px; /* 加宽，解决宽度不足 */
+      background: #fff; padding: 24px; margin: 0 auto;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08); border-radius: 8px;
+      width: 100%; max-width: 900px;
     }
-    canvas {
-      width: 100%;
-      display: block;
-    }
-    /* 右侧控制面板 打印隐藏 */
-    .control-panel {
-      width: 340px;
-      background: #fff;
-      padding: 20px;
-      border-left: 1px solid #e5e7eb;
-      overflow-y: auto;
-    }
-    .btn-group {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    button {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 14px;
-    }
-    .btn-export {
-      background: #f0f4ff;
-      color: #2563eb;
-    }
-    .btn-print {
-      background: #111827;
-      color: #fff;
-    }
-    textarea {
-      width: 100%;
-      height: 130px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      margin-bottom: 16px;
-      resize: none;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .control-item {
-      margin-bottom: 16px;
-    }
-    .control-item label {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-      font-size: 14px;
-      color: #333;
-    }
-    input[type="range"] {
-      width: 100%;
-    }
-    .switch-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-    .divider {
-      height: 1px;
-      background: #eee;
-      margin: 20px 0;
-    }
-    select {
-      width: 100%;
-      padding: 6px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    input[type="color"] {
-      width: 100%;
-      height: 34px;
-      border: none;
-      cursor: pointer;
-    }
-    /* 字体切换标签按钮 */
-    .font-tab-box {
-      display: flex;
-      gap: 0;
-      margin: 8px 0;
-    }
-    .font-tab-box button {
-      flex: 1;
-      padding:7px;
-      border:1px solid #ddd;
-      background:#fff;
-      color:#333;
-    }
-    .font-tab-box button.active {
-      background:#2563eb;
-      color:#fff;
-      border-color:#2563eb;
-    }
-    .tab-left {
-      border-radius:6px 0 0 6px;
-      border-right:none;
-    }
-    .tab-right {
-      border-radius:0 6px 6px 0;
-    }
+    /* 画布按内部分辨率等比显示，宽高比严格=纸张比例 */
+    #paperCanvas { width: 100%; height: auto; display: block; }
+    #paperCanvas.actual-size { width: 210mm !important; }
+
+    /* 右侧控制面板 */
+    .control-panel { width: 340px; background: #fff; padding: 20px; border-left: 1px solid #e5e7eb; overflow-y: auto; }
+    .btn-group { display: flex; gap: 10px; margin-bottom: 16px; }
+    button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .btn-export { background: #f0f4ff; color: #2563eb; }
+    .btn-print { background: #111827; color: #fff; }
+    .btn-actual { background: #fff; color: #374151; border: 1px solid #ddd; }
+    textarea { width: 100%; height: 130px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 16px; resize: none; font-size: 14px; line-height: 1.5; }
+    .control-item { margin-bottom: 16px; }
+    .control-item label { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; color: #333; }
+    input[type="range"] { width: 100%; }
+    .switch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; }
+    .divider { height: 1px; background: #eee; margin: 20px 0; }
+    select { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input[type="color"] { width: 100%; height: 34px; border: none; cursor: pointer; }
+    .tip { font-size: 12px; color: #888; margin-top: 6px; line-height: 1.5; }
+
+    .font-tab-box { display: flex; gap: 0; margin: 8px 0; }
+    .font-tab-box button { flex: 1; padding: 7px; border: 1px solid #ddd; background: #fff; color: #333; }
+    .font-tab-box button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .tab-left { border-radius: 6px 0 0 6px; border-right: none; }
+    .tab-right { border-radius: 0 6px 6px 0; }
+
+    /* 打印分页容器：屏幕隐藏，打印时显示 */
+    #printPages { display: none; }
 
     /* ====================== 打印专用样式 ====================== */
     @media print {
-      @page {
-        size: A4;
-        margin: 12mm;
-        -webkit-print-color-adjust: exact;
-      }
-      body {
-        background: #fff;
-        display: block;
-        overflow: visible;
-      }
-      .no-print {
-        display: none !important;
-      }
-      .preview-wrap {
-        padding: 0;
-      }
-      #canvasBox {
-        box-shadow: none;
-        padding: 0;
-        max-width: 100%;
-      }
-      canvas {
-        width: 100% !important;
-      }
+      @page { size: A4 portrait; margin: 6mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { background: #fff; display: block; overflow: visible; height: auto; }
+      .no-print { display: none !important; }
+      .preview-wrap { padding: 0; overflow: visible; }
+      #canvasBox { display: none !important; }
+      #printPages { display: block; }
+      /* 每页图片宽度 = 210mm - 左右各6mm 页边距，高度按原比例自适应，保证不变形 */
+      .print-page { width: 198mm; margin: 0 auto 6mm; page-break-after: always; break-after: page; }
+      .print-page:last-child { page-break-after: auto; break-after: auto; }
+      .print-page img { width: 198mm; height: auto; display: block; }
     }
   </style>
 </head>
 <body>
-  <!-- 左侧字帖预览（打印保留） -->
+  <!-- 左侧字帖预览 -->
   <div class="preview-wrap">
+    <div class="page-info no-print" id="pageInfo">纸张：A4 210 × 297 mm</div>
     <div id="canvasBox">
       <canvas id="paperCanvas"></canvas>
     </div>
+    <!-- 打印时按 A4 页高切片分页 -->
+    <div id="printPages"></div>
   </div>
 
-  <!-- 右侧设置面板 全部标记no-print，打印自动隐藏 -->
+  <!-- 右侧设置面板 -->
   <div class="control-panel no-print">
     <div class="btn-group">
       <button class="btn-export" id="exportBtn">导出</button>
       <button class="btn-print" id="printBtn">打印</button>
     </div>
-    <!-- 预置示例文本 -->
+    <div class="btn-group">
+      <button class="btn-actual" id="actualSizeBtn">按 A4 实际尺寸预览</button>
+    </div>
+
     <textarea id="wordInput" placeholder="输入格式：英文|中文，每行一条
 thirty|三十
 forty|四十
-fifty|五十
-sixty|六十
-seventy|七十
-eighty|八十
-ninety|九十
-one hundred|一百">thirty|三十
+They are taking pictures.|他们正在拍照。
+What are they doing?|他们在做什么？">thirty|三十
 forty|四十
 fifty|五十
 sixty|六十
 seventy|七十
 eighty|八十
 ninety|九十
-one hundred|一百</textarea>
+They are taking pictures.|他们正在拍照。
+What are they doing?|他们在做什么？</textarea>
 
     <div class="switch-row">
       <span>显示中文释义</span>
@@ -212,11 +113,19 @@ one hundred|一百</textarea>
       <span>插入空行</span>
       <input type="checkbox" id="addBlank" checked>
     </div>
+    <div class="switch-row">
+      <span>防重叠（自动缩放+中文换行）</span>
+      <input type="checkbox" id="autoFit" checked>
+    </div>
+    <div class="switch-row">
+      <span>长句自动分行书写</span>
+      <input type="checkbox" id="wrapLong" checked>
+    </div>
 
     <div class="divider"></div>
 
     <div class="control-item">
-      <label>方格类型 <span>四线格</span></label>
+      <label>方格类型 <span id="gridTypeText">四线格</span></label>
       <select id="gridType">
         <option value="four">四线格</option>
         <option value="two">双线格</option>
@@ -230,14 +139,19 @@ one hundred|一百</textarea>
       <label>行间距 <span id="gapVal">4.5mm</span></label>
       <input type="range" id="lineGap" min="2" max="8" step="0.1" value="4.5">
     </div>
+    <!-- 修正：页边距单位为 mm（原版 36 被当成 36mm，A4 净宽仅剩 138mm） -->
     <div class="control-item">
-      <label>页边距 <span>36,36,36,36</span></label>
-      <input type="range" id="margin" min="10" max="60" value="36">
+      <label>页边距 <span id="marginVal">15mm</span></label>
+      <input type="range" id="margin" min="5" max="40" step="1" value="15">
+    </div>
+    <div class="control-item">
+      <label>最小自动缩放 <span id="minScaleVal">60%</span></label>
+      <input type="range" id="minScale" min="40" max="100" step="5" value="60">
+      <div class="tip">开启后：长句自动等比缩放不压字；缩到下限仍放不下时，中文自动换到该行下方。关闭则只缩放、不换行。</div>
     </div>
 
     <div class="divider"></div>
 
-    <!-- 字体选择模块（Windows自带多字体双标签） -->
     <div class="control-item">
       <label>字体 <span id="currentFontName">Comic Sans 圆润手写</span></label>
       <div class="font-tab-box">
@@ -262,7 +176,6 @@ one hundred|一百</textarea>
         <option value="ShuQiao HengShuiTi">舒窈衡水体（需手动安装）</option>
       </select>
     </div>
-
     <div class="control-item">
       <label>字体大小 <span id="fontSizeVal">85%</span></label>
       <input type="range" id="fontScale" min="60" max="120" value="85">
@@ -288,7 +201,7 @@ one hundred|一百</textarea>
     </div>
 
     <div class="divider"></div>
-    <!-- 画布尺寸分页选择（新增A4单/双/三页） -->
+
     <div class="control-item">
       <label>画布尺寸模式 <span id="sizeModeText">自动适配内容</span></label>
       <select id="canvasSizeMode">
@@ -297,295 +210,398 @@ one hundred|一百</textarea>
         <option value="a4-2">A4 双页(594mm)</option>
         <option value="a4-3">A4 三页(891mm)</option>
       </select>
+      <div class="tip">内容超过所选页数时自动扩展到整数页，不会被裁掉。</div>
     </div>
-    <!-- 最小高度滑块（自动模式生效） -->
     <div class="control-item">
       <label>画布最小高度 <span id="canvasHeightVal">260mm</span></label>
       <input type="range" id="canvasHeightSlider" min="100" max="800" value="260" step="10">
-      <div style="margin-top:6px;font-size:12px;color:#777;">仅「自动适配」模式生效，分页模式锁定固定高度</div>
+      <div class="tip">仅「自动适配」模式生效，分页模式锁定固定高度。</div>
     </div>
   </div>
 
   <script>
-    // 全局画布与配置
+    // ============ 基础常量 ============
+    const A4_W_MM = 210, A4_H_MM = 297;                 // A4 纵向尺寸（mm）
+    const BASE_PX_PER_MM = 96 / 25.4;                    // 96dpi 基准
+    const DPI_SCALE = 2;                                 // 高清渲染倍率（约192dpi），导出/打印更清晰
+    const S = DPI_SCALE;                                 // 像素常量缩放
+    const PAD_L = 8 * S, PAD_R = 10 * S;                 // 行内左右内缩进（测量与绘制必须一致）
+    const CN_FONT = '"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Heiti SC",sans-serif';
+
+    function mm2px(mm) { return mm * BASE_PX_PER_MM * DPI_SCALE; }
+    function px2mm(px) { return px / (BASE_PX_PER_MM * DPI_SCALE); }
+
     const canvas = document.getElementById('paperCanvas');
     const ctx = canvas.getContext('2d');
-    const canvasBox = document.getElementById('canvasBox');
+
     let config = {
       words: [],
       showCn: true,
       firstHigh: false,
-      addBlank: false,
+      addBlank: true,
+      autoFit: true,          // 防重叠
+      wrapLong: true,         // 长句自动分行书写
+      minAutoScale: 60,       // 自动缩放下限（%），低于此值优先换行/分行
       gridType: 'four',
       lineHeight: 11.4,
       lineGap: 4.5,
-      margin: 36,
+      margin: 15,             // 页边距 mm（修正：原版 36 被当成 36mm，A4 净宽只剩 138mm）
       font: 'Comic Sans MS',
       fontScale: 85,
       vertOffset: 0,
       traceCount: 1,
       traceColor: '#ff6666',
       lineColor: '#94a3b8',
-      extraBottomSpace: 80,    // 底部留白
-      minCanvasMM: 260,        // 自动模式最小高度
-      sizeMode: 'auto'         // 尺寸模式 auto/a4-1/a4-2/a4-3
-    }
+      extraBottomSpace: 10,   // 底部留白 mm（原版 80 过大）
+      minCanvasMM: 260,
+      sizeMode: 'auto'
+    };
 
-    // 毫米转像素
-    function mm2px(mm) {
-      return mm * 3.78;
-    }
-
-    // 解析输入框文本 拆分英文|中文
+    // ============ 解析输入 ============
     function parseInputText() {
-      const inputEl = document.getElementById('wordInput');
-      if (!inputEl) return;
-      const text = inputEl.value.trim();
-      if (!text) {
-        config.words = [];
-        renderPaper();
-        return;
-      }
-      const lines = text.split('\n').filter(item => item.trim() !== '');
-      config.words = lines.map(line => {
-        const arr = line.split('|').map(s => s.trim());
-        return { en: arr[0] || '', cn: arr[1] || '' }
-      })
+      const text = document.getElementById('wordInput').value.trim();
+      if (!text) { config.words = []; renderPaper(); return; }
+      config.words = text.split('\n')
+        .filter(l => l.trim() !== '')
+        .map(line => {
+          const arr = line.split(/[|｜]/).map(x => x.trim());  // 兼容全角｜
+          return { en: arr[0] || '', cn: arr[1] || '' };
+        });
       renderPaper();
     }
 
-    // 绘制单行四线格
-    function drawFourLine(y, lineH, lineC) {
+    // ============ 格子绘制 ============
+    function gridLines(y, lineH, lineC, type) {
       const marginPx = mm2px(config.margin);
       const width = canvas.width - marginPx * 2;
       const xStart = marginPx;
-      const subHeight = lineH / 4;
       ctx.strokeStyle = lineC;
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        ctx.beginPath();
-        if (i === 1 || i === 3) ctx.setLineDash([4, 4]);
-        else ctx.setLineDash([]);
-        ctx.moveTo(xStart, y + subHeight * i);
-        ctx.lineTo(xStart + width, y + subHeight * i);
-        ctx.stroke();
+      ctx.lineWidth = 1 * S / 2;
+      if (type === 'two') {
+        ctx.setLineDash([4 * S, 4 * S]);
+        ctx.beginPath(); ctx.moveTo(xStart, y + lineH * 0.18); ctx.lineTo(xStart + width, y + lineH * 0.18); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(xStart, y + lineH * 0.82); ctx.lineTo(xStart + width, y + lineH * 0.82); ctx.stroke();
+      } else {
+        const sub = lineH / 4;
+        for (let i = 0; i <= 4; i++) {
+          ctx.beginPath();
+          ctx.setLineDash((i === 1 || i === 3) ? [4 * S, 4 * S] : []);
+          ctx.moveTo(xStart, y + sub * i);
+          ctx.lineTo(xStart + width, y + sub * i);
+          ctx.stroke();
+        }
       }
       ctx.setLineDash([]);
     }
 
-    // 主渲染函数（自动计算画布高度+分页固定尺寸）
-    function renderPaper() {
-      const marginPx = mm2px(config.margin);
+    function enFontFamily() { return `"${config.font}", ${CN_FONT}`; }
+
+    // ============ 布局：先测量后排版，输出扁平物理行 ============
+    // 单行策略：同行 → 中文换行 → 长句分行（按单词拆到多格），全程保证不重叠、不出血
+    function computeLayout(availW) {
       const lineHpx = mm2px(config.lineHeight);
       const gapPx = mm2px(config.lineGap);
-      let fixedHeightMM = 0;
+      const baseFont = lineHpx * config.fontScale / 100;
+      const contentW = availW - PAD_L - PAD_R;
+      const safeGap = 8 * S;
+      const G = 12 * S + 16 * S * config.traceCount;     // 字间距（随字号同比缩放）
 
-      // 根据尺寸模式锁定高度
-      switch(config.sizeMode){
-        case 'a4-1':
-          fixedHeightMM = 297;
-          break;
-        case 'a4-2':
-          fixedHeightMM = 594;
-          break;
-        case 'a4-3':
-          fixedHeightMM = 891;
-          break;
-        default:
-          fixedHeightMM = 0;
+      const measureEn = (fs, text) => {
+        ctx.font = `${fs}px ${enFontFamily()}`;
+        return ctx.measureText(text).width * (1 + config.traceCount) + G * (fs / baseFont);
+      };
+      const measureCn = (fs, cn) => {
+        ctx.font = `${fs}px ${CN_FONT}`;
+        return ctx.measureText(cn).width;
+      };
+      const rowH = cnLineH => lineHpx + gapPx + (config.addBlank ? lineHpx / 2 : 0) + (cnLineH || 0);
+
+      // 按单词贪心分行
+      function wrapWords(text, fs) {
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length < 2) return [text];
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+          const test = cur ? cur + ' ' + w : w;
+          if (measureEn(fs, test) > contentW && cur) { lines.push(cur); cur = w; }
+          else cur = test;
+        }
+        if (cur) lines.push(cur);
+        return lines;
       }
 
-      // 1. 计算内容实际占用高度
-      let contentTotalY = marginPx;
-      config.words.forEach(() => {
-        contentTotalY += lineHpx + gapPx;
-        if (config.addBlank) contentTotalY += lineHpx / 2;
-      })
-      contentTotalY += marginPx + mm2px(config.extraBottomSpace);
+      const out = [];
+      config.words.forEach(item => {
+        const cn = (config.showCn && item.cn) ? item.cn : '';
+        const enW0 = measureEn(baseFont, item.en);
+        const cnW0 = cn ? measureCn(baseFont * 0.8, cn) : 0;
+        const need = enW0 + (cnW0 ? safeGap + cnW0 : 0);
 
-      // 2. 判断最终画布高度
-      let realCanvasHeight;
-      if(fixedHeightMM > 0){
-        // 分页模式：强制固定A4高度
-        realCanvasHeight = mm2px(fixedHeightMM);
-      }else{
-        // 自动模式：取内容高度 / 最小限制高度 二者更大值
-        const minHeightPx = mm2px(config.minCanvasMM);
-        realCanvasHeight = Math.max(contentTotalY, minHeightPx);
+        let enFont = baseFont, cnFont = baseFont * 0.8;
+        let mode = 'single';                              // single | cnBelow | wrap
+
+        if (need > contentW) {
+          const s = contentW / need;
+          if (!config.autoFit || s >= config.minAutoScale / 100) {
+            // 同行等比缩放即可放下
+            enFont = baseFont * s;
+            cnFont = baseFont * 0.8 * s;
+          } else {
+            // 先试：中文换到行下方，英文用满宽
+            const se = Math.min(1, contentW / enW0);
+            if (se >= config.minAutoScale / 100 || !config.wrapLong || !/\s/.test(item.en.trim())) {
+              mode = 'cnBelow';
+              enFont = baseFont * se;
+              cnFont = baseFont * 0.8 * Math.min(1, contentW / (cnW0 || 1));
+            } else {
+              // 缩得太小 → 长句按单词分行书写，保持标准字号
+              mode = 'wrap';
+              enFont = baseFont;
+              cnFont = baseFont * 0.8;
+            }
+          }
+        }
+
+        if (mode === 'wrap') {
+          const lines = wrapWords(item.en, enFont);
+          lines.forEach((text, i) => {
+            const isLast = i === lines.length - 1;
+            // 单个超长单词仍可能超宽，按行再缩放
+            let fs = enFont;
+            let w = measureEn(fs, text);
+            if (w > contentW) { fs = enFont * (contentW / w); w = contentW; }
+            let rowCn = '', rowCnFont = cnFont, cnBelow = false, cnLineH = 0;
+            if (isLast && cn) {
+              rowCn = cn;
+              const cw = measureCn(cnFont, cn);
+              if (w + safeGap + cw > contentW) {          // 末行放不下 → 中文落到该行下方
+                cnBelow = true;
+                rowCnFont = cnFont * Math.min(1, contentW / cw);
+                cnLineH = rowCnFont * 1.15 + 6 * S;
+              }
+            }
+            out.push({ text, enFont: fs, cn: rowCn, cnFont: rowCnFont, cnBelow, h: rowH(cnLineH) });
+          });
+          return;
+        }
+
+        if (mode === 'cnBelow') {
+          const cw = cn ? measureCn(cnFont, cn) : 0;
+          const cnLineH = cn ? cnFont * 1.15 + 6 * S : 0;
+          out.push({ text: item.en, enFont, cn, cnFont, cnBelow: !!cn, h: rowH(cnLineH) });
+          return;
+        }
+
+        out.push({ text: item.en, enFont, cn, cnFont, cnBelow: false, h: rowH(0) });
+      });
+
+      return out;
+    }
+
+    // ============ 主渲染 ============
+    function renderPaper() {
+      // 修正：画布宽度严格等于 A4 宽（原版取浏览器容器宽度，宽高比不是 210:297）
+      canvas.width = Math.round(mm2px(A4_W_MM));
+
+      const marginPx = mm2px(config.margin);
+      const lineHpx = mm2px(config.lineHeight);
+      const availW = canvas.width - marginPx * 2;
+      const rows = computeLayout(availW);
+
+      let contentH = marginPx * 2 + mm2px(config.extraBottomSpace);
+      rows.forEach(r => contentH += r.h);
+
+      // 高度：分页模式锁定页数；内容超出时自动向上取整到整数页，绝不裁切
+      const pageHpx = mm2px(A4_H_MM);
+      let pages = 1, expanded = false, H;
+      if (config.sizeMode === 'a4-2') pages = 2;
+      else if (config.sizeMode === 'a4-3') pages = 3;
+
+      if (config.sizeMode === 'auto') {
+        H = Math.max(contentH, mm2px(config.minCanvasMM));
+      } else {
+        H = pageHpx * pages;
+        if (contentH > H) { pages = Math.ceil(contentH / pageHpx); H = pageHpx * pages; expanded = true; }
       }
-
-      // 3. 更新画布尺寸
-      canvas.width = canvasBox.clientWidth;
-      canvas.height = realCanvasHeight;
+      canvas.height = Math.round(H);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const baseFontSize = lineHpx * (config.fontScale / 100);
-      let currentY = marginPx;
+      // 顶部状态条
+      const info = document.getElementById('pageInfo');
+      let warn = '';
+      if (expanded) warn += ` ｜ <span class="warn">内容超出所选页数，已自动扩展为 ${pages} 页</span>`;
+      if (rows.some(r => r.cnBelow)) warn += ' ｜ 部分中文已自动换到行下方';
+      info.innerHTML = `纸张：A4 210 × 297 mm ｜ 画布：<b>${A4_W_MM} × ${px2mm(canvas.height).toFixed(0)} mm（${pages} 页）</b>`
+        + ` ｜ 分辨率 ${Math.round(96 * DPI_SCALE)}dpi${warn}`;
 
-      // 无文字提示
       if (config.words.length === 0) {
         ctx.fillStyle = '#888';
-        ctx.font = '16px Arial';
-        ctx.fillText('请在右侧输入英文|中文单词，每行一条', marginPx, currentY + 30);
+        ctx.font = `${16 * S}px ${CN_FONT}`;
+        ctx.fillText('请在右侧输入 英文|中文，每行一条', marginPx, marginPx + 30 * S);
         return;
       }
 
-      // 逐行绘制单词
-      config.words.forEach(item => {
-        drawFourLine(currentY, lineHpx, config.lineColor);
-        const textBaselineY = currentY + lineHpx / 2 + mm2px(config.vertOffset);
-        const wordStartX = marginPx + 8;
+      // 逐行绘制
+      let currentY = marginPx;
+      ctx.textBaseline = 'alphabetic';
+      rows.forEach(row => {
+        gridLines(currentY, lineHpx, config.lineColor, config.gridType);
+        const baseline = currentY + (config.gridType === 'two' ? lineHpx * 0.82 : lineHpx / 2) + mm2px(config.vertOffset);
+        const k = row.enFont / (lineHpx * config.fontScale / 100);
+        let x = marginPx + PAD_L;
 
-        // 黑色原词
-        ctx.fillStyle = '#000';
-        ctx.font = `${baseFontSize}px ${config.font}`;
-        ctx.fillText(item.en, wordStartX, textBaselineY);
-        let drawX = wordStartX + ctx.measureText(item.en).width + 12;
+        // 英文
+        ctx.font = `${row.enFont}px ${enFontFamily()}`;
+        if (config.firstHigh && row.text.length > 0) {
+          const first = row.text[0], rest = row.text.slice(1);
+          ctx.fillStyle = config.traceColor;
+          ctx.fillText(first, x, baseline);
+          x += ctx.measureText(first).width;
+          ctx.fillStyle = '#000';
+          ctx.fillText(rest, x, baseline);
+          x += ctx.measureText(rest).width;
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillText(row.text, x, baseline);
+          x += ctx.measureText(row.text).width;
+        }
+        x += 12 * S * k;
 
-        // 红色描红
+        // 描红
         ctx.fillStyle = config.traceColor;
         for (let i = 0; i < config.traceCount; i++) {
-          ctx.fillText(item.en, drawX, textBaselineY);
-          drawX += ctx.measureText(item.en).width + 16;
+          ctx.fillText(row.text, x, baseline);
+          x += ctx.measureText(row.text).width + 16 * S * k;
         }
 
-        // 右侧中文释义
-        if (config.showCn && item.cn) {
-          ctx.fillStyle = '#222';
-          ctx.font = `${baseFontSize * 0.8}px Arial`;
-          const cnWidth = ctx.measureText(item.cn).width;
-          const cnX = canvas.width - marginPx - cnWidth - 10;
-          ctx.fillText(item.cn, cnX, textBaselineY);
+        // 中文释义
+        if (row.cn) {
+          ctx.font = `${row.cnFont}px ${CN_FONT}`;
+          ctx.fillStyle = '#333';
+          if (row.cnBelow) {
+            ctx.fillText(row.cn, marginPx + PAD_L, currentY + lineHpx + row.cnFont * 1.05);
+          } else {
+            const w = ctx.measureText(row.cn).width;
+            ctx.fillText(row.cn, canvas.width - marginPx - PAD_R - w, baseline);
+          }
         }
 
-        currentY += lineHpx + gapPx;
-        if (config.addBlank) currentY += lineHpx / 2;
-      })
+        currentY += row.h;
+      });
     }
 
-    // 绑定所有控件事件
+    // ============ 打印：按 A4 页高切片，一页一张，比例不变形 ============
+    function buildPrintPages(done) {
+      const box = document.getElementById('printPages');
+      box.innerHTML = '';
+      const pageHpx = Math.round(mm2px(A4_H_MM));
+      const n = Math.max(1, Math.ceil(canvas.height / pageHpx));
+      const imgs = [];
+      for (let i = 0; i < n; i++) {
+        const h = Math.min(pageHpx, canvas.height - i * pageHpx);
+        const c = document.createElement('canvas');
+        c.width = canvas.width; c.height = h;
+        const cc = c.getContext('2d');
+        cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height);
+        cc.drawImage(canvas, 0, i * pageHpx, canvas.width, h, 0, 0, canvas.width, h);
+        const img = new Image();
+        img.src = c.toDataURL('image/png');
+        const div = document.createElement('div');
+        div.className = 'print-page';
+        div.appendChild(img);
+        box.appendChild(div);
+        imgs.push(img);
+      }
+      // 图片解码是异步的，必须等全部就绪再打印，否则可能打出空白页
+      Promise.all(imgs.map(im => new Promise(res => {
+        if (im.complete) res(); else { im.onload = res; im.onerror = res; }
+      }))).then(() => { if (done) done(); });
+    }
+
+    // ============ 控件绑定 ============
     function bindAllControl() {
-      // 文本输入实时更新
       document.getElementById('wordInput').addEventListener('input', parseInputText);
 
-      // 开关
-      document.getElementById('showCn').onchange = e => {
-        config.showCn = e.target.checked;
-        renderPaper();
-      }
-      document.getElementById('firstHigh').onchange = e => {
-        config.firstHigh = e.target.checked;
-        renderPaper();
-      }
-      document.getElementById('addBlank').onchange = e => {
-        config.addBlank = e.target.checked;
-        renderPaper();
-      }
+      ['showCn', 'firstHigh', 'addBlank', 'autoFit', 'wrapLong'].forEach(id => {
+        document.getElementById(id).onchange = e => { config[id] = e.target.checked; renderPaper(); };
+      });
 
-      // 通用滑块绑定函数
-      function bindSlider(sliderId, cfgKey, valSpanId, unit = '') {
-        const slider = document.getElementById(sliderId);
-        const valSpan = document.getElementById(valSpanId);
-        slider.oninput = () => {
-          config[cfgKey] = Number(slider.value);
-          if (valSpan) valSpan.innerText = slider.value + unit;
+      function bindSlider(id, key, spanId, unit = '') {
+        const s = document.getElementById(id), span = document.getElementById(spanId);
+        s.oninput = () => {
+          config[key] = Number(s.value);
+          if (span) span.innerText = s.value + unit;
           renderPaper();
-        }
+        };
       }
       bindSlider('lineHeight', 'lineHeight', 'lineHeightVal', 'mm');
       bindSlider('lineGap', 'lineGap', 'gapVal', 'mm');
+      bindSlider('margin', 'margin', 'marginVal', 'mm');
+      bindSlider('minScale', 'minAutoScale', 'minScaleVal', '%');
       bindSlider('fontScale', 'fontScale', 'fontSizeVal', '%');
       bindSlider('vertOffset', 'vertOffset', 'offsetVal', '%');
       bindSlider('traceCount', 'traceCount', 'traceNumVal', '');
 
-      // 画布最小高度滑块（仅自动模式生效）
-      const canvasSlider = document.getElementById('canvasHeightSlider');
-      const canvasVal = document.getElementById('canvasHeightVal');
-      canvasSlider.oninput = () => {
-        config.minCanvasMM = Number(canvasSlider.value);
-        canvasVal.innerText = canvasSlider.value + 'mm';
-        renderPaper();
-      }
+      const chSlider = document.getElementById('canvasHeightSlider'), chVal = document.getElementById('canvasHeightVal');
+      chSlider.oninput = () => { config.minCanvasMM = Number(chSlider.value); chVal.innerText = chSlider.value + 'mm'; renderPaper(); };
 
-      // 画布尺寸模式选择（A4单/双/三页）
-      const sizeModeSel = document.getElementById('canvasSizeMode');
-      const sizeModeText = document.getElementById('sizeModeText');
-      sizeModeSel.onchange = e => {
-        config.sizeMode = e.target.value;
-        sizeModeText.innerText = e.target.options[e.target.selectedIndex].text;
-        renderPaper();
-      }
+      const sizeSel = document.getElementById('canvasSizeMode'), sizeTxt = document.getElementById('sizeModeText');
+      sizeSel.onchange = e => { config.sizeMode = e.target.value; sizeTxt.innerText = e.target.options[e.target.selectedIndex].text; renderPaper(); };
 
-      // 方格下拉
       document.getElementById('gridType').onchange = e => {
         config.gridType = e.target.value;
+        document.getElementById('gridTypeText').innerText = e.target.options[e.target.selectedIndex].text;
         renderPaper();
-      }
+      };
 
-      // 颜色选择器
-      document.getElementById('traceColor').oninput = e => {
-        config.traceColor = e.target.value;
-        renderPaper();
-      }
-      document.getElementById('lineColor').oninput = e => {
-        config.lineColor = e.target.value;
-        renderPaper();
-      }
+      document.getElementById('traceColor').oninput = e => { config.traceColor = e.target.value; renderPaper(); };
+      document.getElementById('lineColor').oninput = e => { config.lineColor = e.target.value; renderPaper(); };
 
-      // 导出、打印按钮
       document.getElementById('exportBtn').onclick = () => {
         const a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
-        a.download = '英文字帖带释义.png';
+        a.download = '英文字帖_A4.png';
         a.click();
-      }
-      document.getElementById('printBtn').onclick = () => window.print();
+      };
 
-      // ========== 字体双标签切换逻辑 ==========
+      document.getElementById('printBtn').onclick = () => buildPrintPages(() => window.print());
+      window.addEventListener('beforeprint', () => buildPrintPages());
+
+      document.getElementById('actualSizeBtn').onclick = e => {
+        canvas.classList.toggle('actual-size');
+        e.target.innerText = canvas.classList.contains('actual-size') ? '恢复适应宽度预览' : '按 A4 实际尺寸预览';
+      };
+
+      // 字体双标签
       const tabWin = document.getElementById('tabWinFont');
-      const tabLocalInstall = document.getElementById('tabLocalInstallFont');
+      const tabLocal = document.getElementById('tabLocalInstallFont');
       const selWin = document.getElementById('winFontSelect');
-      const selLocalInstall = document.getElementById('localInstallFontSelect');
-      const fontShowName = document.getElementById('currentFontName');
-
-      tabWin.onclick = () => {
-        tabWin.classList.add('active');
-        tabLocalInstall.classList.remove('active');
-        selWin.style.display = 'block';
-        selLocalInstall.style.display = 'none';
+      const selLocal = document.getElementById('localInstallFontSelect');
+      const nameSpan = document.getElementById('currentFontName');
+      const useWin = () => {
+        tabWin.classList.add('active'); tabLocal.classList.remove('active');
+        selWin.style.display = 'block'; selLocal.style.display = 'none';
         config.font = selWin.value;
-        fontShowName.innerText = selWin.options[selWin.selectedIndex].text;
+        nameSpan.innerText = selWin.options[selWin.selectedIndex].text;
         renderPaper();
-      }
-      tabLocalInstall.onclick = () => {
-        tabLocalInstall.classList.add('active');
-        tabWin.classList.remove('active');
-        selLocalInstall.style.display = 'block';
-        selWin.style.display = 'none';
-        config.font = selLocalInstall.value;
-        fontShowName.innerText = selLocalInstall.options[selLocalInstall.selectedIndex].text;
+      };
+      const useLocal = () => {
+        tabLocal.classList.add('active'); tabWin.classList.remove('active');
+        selLocal.style.display = 'block'; selWin.style.display = 'none';
+        config.font = selLocal.value;
+        nameSpan.innerText = selLocal.options[selLocal.selectedIndex].text;
         renderPaper();
-      }
-      selWin.onchange = e => {
-        config.font = e.target.value;
-        fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
-        renderPaper();
-      }
-      selLocalInstall.onchange = e => {
-        config.font = e.target.value;
-        fontShowName.innerText = e.target.options[e.target.selectedIndex].text;
-        renderPaper();
-      }
+      };
+      tabWin.onclick = useWin;
+      tabLocal.onclick = useLocal;
+      selWin.onchange = useWin;
+      selLocal.onchange = useLocal;
     }
 
-    // 页面加载初始化
-    window.addEventListener('load', () => {
-      bindAllControl();
-      setTimeout(parseInputText, 100);
-    });
-    window.addEventListener('resize', () => {
-      setTimeout(renderPaper, 50);
-    })
+    window.addEventListener('load', () => { bindAllControl(); setTimeout(parseInputText, 80); });
+
   </script>
 </body>
 </html>
